@@ -1,0 +1,2194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CareBridge | 노무 감사 문서철 (기록된 응답 데모 / recorded demo)</title>
+<!-- Inline seal mark. A data URI rather than a file so the page makes no extra
+     request and never logs a 404 for an icon that was never shipped. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='3' fill='%23ffffff'/%3E%3Crect x='5' y='5' width='22' height='22' rx='2' fill='none' stroke='%23a82b22' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+/* ==================================================================
+   CareBridge 노무 감사 문서철
+
+   Design basis: KRDS 확장형 (Adaptive). CareBridge has its own brand,
+   so it takes KRDS's structural and accessibility rules and keeps its
+   own palette. Reference: krds.go.kr (범정부 UI/UX 디자인 시스템).
+
+     · body base 17px, content floor 15px   (KRDS: body min 16px)
+     · line-height 160% body / 140% display (WCAG 1.4.12, cited by KRDS)
+     · weights 400 / 500 / 700 only
+     · rem units, 10px root                 (KRDS 표현 단위)
+     · all text passes WCAG AA at its size
+
+   The idea, unchanged and deliberately sharpened: this is a BOUND
+   DOCUMENT, not an application. Numbered instruments on ruled sheets,
+   a spine down the left edge, and a stamped verdict at the end of each
+   one. Nothing floats in a rounded card; colour is reserved for
+   verdicts, so a colour on this page always means something decided.
+
+   Two rules this file exists to keep:
+    1. No network request. The typeface resolves from fonts already on
+       the machine, never a CDN -- so the page renders identically on a
+       plane, inside a hospital's locked-down browser, and offline.
+    2. No letter-spacing on Hangul (한글에는 자간을 늘리지 않는다).
+       Korean word-spacing tightens under artificial tracking; the
+       stamp gets its presence from size and weight instead.
+
+   Every number shown comes from a live API response that was measured.
+   Where the engine returns no field, the screen says so rather than
+   filling it in -- see the insurance-notes row.
+   ================================================================== */
+
+:root{
+  font-size:62.5%;                       /* 1rem = 10px */
+
+  /* ---- paper and ink ---- */
+  --paper:#e8ecf1;
+  --sheet:#ffffff;
+  --ink:#0f1720;                         /* 16.9:1 on sheet */
+  --ink-2:#3d4954;                       /* 9.3:1  */
+  --ink-muted:#5a6673;                   /* 6.4:1  — AA normal text */
+  --rule:#d3dae2;
+  --rule-2:#aab5c0;
+  --rule-strong:#0f1720;
+  --thead:#f2f5f8;
+
+  /* ---- the one institutional colour: structure only ---- */
+  --brand:#0f3a63;                       /* 10.6:1 on sheet */
+  --brand-hover:#0b2b4a;
+  --brand-tint:#eef3f9;
+
+  /* ---- reserved for verdicts ---- */
+  --seal:#9c2a20;                        /* 7.6:1 */
+  --clean:#0d5a48;                       /* 8.3:1 */
+  --hold:#6f4a17;                        /* 7.9:1 */
+  --clean-bg:#f1f7f4;
+  --hold-bg:#faf6ee;
+  --fail-bg:#fbf3f2;
+
+  /* ---- type ----
+     Pretendard if the machine has it, otherwise the Korean system face.
+     Naming the Korean faces explicitly keeps Hangul off a CJK fallback
+     that would render it with Chinese glyph shapes. */
+  --gov:'Pretendard GOV Variable','Pretendard GOV',Pretendard,
+        -apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',
+        'Noto Sans KR','Malgun Gothic',system-ui,sans-serif;
+
+  --t-display:4.2rem; --t-xl:2.8rem; --t-lg:2.1rem; --t-md:1.8rem;
+  --t-body:1.7rem; --t-table:1.6rem; --t-sm:1.5rem; --t-xs:1.4rem;
+  --lh-body:160%; --lh-tight:140%;
+
+  --pad-x:3.2rem;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;padding:0 2.4rem 8rem;background:var(--paper);color:var(--ink);
+  font-family:var(--gov);font-size:var(--t-body);font-weight:400;line-height:var(--lh-body);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+.page{max-width:108rem;margin:0 auto}
+
+/* Keyboard focus is the same everywhere and always visible. */
+:where(button,a,summary,input):focus-visible{
+  outline:.2rem solid var(--brand);outline-offset:.2rem;
+}
+
+/* ---------- document header ---------- */
+.cover{
+  display:flex;justify-content:space-between;align-items:flex-end;gap:3.2rem;
+  padding:5.2rem 0 2.8rem;border-bottom:.2rem solid var(--rule-strong);
+}
+.cover h1{
+  font-size:var(--t-xl);font-weight:700;margin:0;
+  line-height:var(--lh-tight);letter-spacing:0;      /* Hangul: no tracking */
+}
+.cover .sub{font-size:var(--t-sm);color:var(--ink-muted);margin:1rem 0 0;max-width:62rem}
+.cover .side{text-align:right;font-size:var(--t-sm);color:var(--ink-muted)}
+.filetools{display:flex;gap:1.2rem;justify-content:flex-end;margin-top:1.4rem}
+/* A watcher that has stopped is a verdict, not a decoration: it means the compliance surface
+   you are reading may have moved underneath you. Rendered in the seal colour so it cannot be
+   mistaken for a healthy status line. */
+#t-api.stale{color:var(--seal);font-weight:600}
+
+/* ---------- status strip ---------- */
+/* The strip and the file below it share one 0.6rem navy spine down the left edge,
+   so they read as a single bound block rather than a widget sitting above a form. */
+.summary{
+  display:grid;grid-template-columns:repeat(5,1fr);margin:0;
+  background:var(--brand-tint);
+  border:.1rem solid var(--rule);border-left:.6rem solid var(--brand);border-top:none;
+}
+.summary>div{padding:2.2rem 2.4rem;border-right:.1rem solid var(--rule)}
+.summary>div:last-child{border-right:none}
+.summary dt{font-size:var(--t-sm);color:var(--ink-muted);margin:0 0 .8rem;font-weight:500}
+.summary dd{
+  margin:0;font-size:var(--t-lg);font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.25;
+}
+
+/* ---------- the file ---------- */
+.file{
+  border:.1rem solid var(--rule);border-top:none;border-left:.6rem solid var(--brand);
+  background:var(--sheet);
+  box-shadow:0 .1rem .2rem rgba(15,23,32,.05);
+}
+.sheet{border-bottom:.1rem solid var(--rule)}
+.sheet:last-child{border-bottom:none}
+
+.sheet-head{
+  display:grid;grid-template-columns:5.6rem 1fr auto;align-items:center;
+  gap:0 1.8rem;padding:2.2rem var(--pad-x);width:100%;text-align:left;
+  border:none;border-bottom:.1rem solid var(--rule);
+  font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;
+  background:var(--thead);
+}
+/* The open instrument reads as the current page; the closed ones recede. */
+.sheet:not(.closed) .sheet-head{background:var(--sheet)}
+.sheet-head:hover{background:var(--brand-tint)}
+.sheet-head:focus-visible{outline:.2rem solid var(--brand);outline-offset:-.2rem}
+.sheet-head .no{
+  font-size:var(--t-md);font-weight:700;color:var(--brand);
+  font-variant-numeric:tabular-nums;letter-spacing:0;
+  border-right:.1rem solid var(--rule);padding-right:1.4rem;
+}
+.sheet-head h2{font-size:var(--t-lg);font-weight:700;margin:0;letter-spacing:0;line-height:var(--lh-tight)}
+.sheet-head .state{
+  font-size:var(--t-sm);font-weight:700;white-space:nowrap;
+  padding:.5rem 1.1rem;border:.1rem solid currentColor;border-radius:.3rem;
+}
+.state.done{color:var(--clean)}
+.state.todo{color:var(--ink-muted)}
+.state.flag{color:var(--seal)}
+.state.hold{color:var(--hold)}
+
+.body{padding:3.6rem var(--pad-x) 4.4rem;border-top:.1rem solid var(--rule)}
+.sheet.closed .body{display:none}
+
+/* ---------- inputs ---------- */
+.form{display:grid;grid-template-columns:repeat(4,1fr);gap:2.4rem 2.8rem;margin-bottom:2.4rem}
+.form label{display:block;font-size:var(--t-sm);color:var(--ink-muted);margin-bottom:.7rem;font-weight:500}
+.form input,.form select{
+  width:100%;height:5.2rem;padding:0 1.5rem;
+  border:.1rem solid var(--rule-2);border-radius:.5rem;background:var(--sheet);
+  color:var(--ink);font-family:inherit;font-size:var(--t-body);font-weight:500;
+  font-variant-numeric:tabular-nums;
+}
+.form input:hover,.form select:hover{border-color:var(--ink-muted)}
+.form input:focus-visible,.form select:focus-visible{
+  outline:none;border-color:var(--brand);box-shadow:0 0 0 .3rem rgba(15,58,99,.16);
+}
+/* Enumerated fields are chosen, not typed: a Korean director should never have to
+   read or spell a machine value like `not_accredited`. The chevron is an inline
+   data URI so the page still makes no network request. */
+.form select{
+  appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:4.4rem;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%235a6673' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 1.6rem center;background-size:1.2rem;
+}
+.form .note{grid-column:1/-1;font-size:var(--t-sm);color:var(--ink-muted);margin:-1rem 0 0}
+
+/* ---------- actions ---------- */
+.actions{display:flex;gap:1.6rem;flex-wrap:wrap}
+.btn{
+  font-family:inherit;font-size:var(--t-body);font-weight:700;
+  padding:1.4rem 2.6rem;border-radius:.5rem;cursor:pointer;
+  background:var(--brand);color:#fff;border:.1rem solid var(--brand);
+  transition:background-color .12s ease,border-color .12s ease;
+}
+.btn:hover{background:var(--brand-hover);border-color:var(--brand-hover)}
+.btn.secondary{background:transparent;color:var(--ink-2);border-color:var(--rule-2)}
+.btn.secondary:hover{background:var(--thead);border-color:var(--ink-muted);color:var(--ink)}
+.btn[disabled]{opacity:.5;cursor:progress}
+
+/* ---------- result ---------- */
+.result{margin-top:2.8rem;padding-top:2.6rem;border-top:.1rem solid var(--rule)}
+.result[hidden]{display:none}
+.placeholder{font-size:var(--t-body);color:var(--ink-muted);margin:0}
+
+/* a second instrument on the same sheet */
+.sub-h{
+  font-size:var(--t-lg);font-weight:700;margin:4.4rem 0 2rem;
+  padding-top:3.2rem;border-top:.1rem solid var(--rule);letter-spacing:0;
+}
+
+/* ---------- ledger tables ---------- */
+table.ledger{width:100%;border-collapse:collapse;margin-top:2.8rem}
+table.ledger thead th{
+  font-size:var(--t-sm);font-weight:700;text-align:left;color:var(--brand);
+  background:var(--brand-tint);padding:1.4rem 1.6rem;
+  border-top:.1rem solid var(--rule-2);border-bottom:.1rem solid var(--rule-2);
+}
+table.ledger th,table.ledger td{
+  font-size:var(--t-table);padding:1.6rem;border-bottom:.1rem solid var(--rule);
+  text-align:left;font-weight:400;vertical-align:top;
+}
+table.ledger tbody th{font-weight:500;color:var(--ink)}
+table.ledger td.basis{color:var(--ink-muted);width:34%}
+table.ledger td.amount,table.ledger th.amount{
+  text-align:right;font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap;
+}
+table.ledger tr.total th,table.ledger tr.total td{
+  border-top:.2rem solid var(--rule-strong);border-bottom:none;font-weight:700;padding-top:2rem;
+}
+table.ledger tr.total td.amount{font-size:var(--t-lg)}
+
+/* ---------- the verdict ----------
+   The focal point of every instrument. The panel reads its state from
+   the seal it contains, so the tint and the stamp cannot disagree: if
+   one changes, both change. Without :has() support the panel simply
+   stays neutral rather than showing the wrong colour. */
+.verdict{
+  display:flex;align-items:center;gap:3.6rem;
+  margin-top:2.6rem;padding:3.2rem 3.6rem;
+  background:var(--sheet);
+  border:.1rem solid var(--rule-2);border-left:.6rem solid var(--rule-2);
+}
+.verdict:has(.seal.clean){border-left-color:var(--clean);background:var(--clean-bg)}
+.verdict:has(.seal.hold){border-left-color:var(--hold);background:var(--hold-bg)}
+.verdict:has(.seal:not(.clean):not(.hold)){border-left-color:var(--seal);background:var(--fail-bg)}
+.verdict>div:last-child{min-width:0}
+.verdict .claim{
+  margin:0 0 1rem;font-size:var(--t-xl);font-weight:700;
+  line-height:var(--lh-tight);letter-spacing:0;
+}
+.verdict .authority{margin:0;font-size:var(--t-sm);color:var(--ink-muted)}
+
+.seal{
+  width:13.2rem;height:13.2rem;flex:0 0 auto;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;
+  border:.4rem solid var(--seal);border-radius:.6rem;
+  color:var(--seal);background:rgba(255,255,255,.7);
+  font-size:var(--t-lg);font-weight:700;line-height:1.2;
+  letter-spacing:0;                    /* Hangul: no tracking */
+  text-align:center;opacity:.95;
+}
+/* Upright, like a real 직인. A tilted badge is a Western "APPROVED" affectation --
+   Korean official seals are square to the page. Tilting also read as a rendering
+   fault against the grid everywhere else on this screen. */
+.seal.clean{border-color:var(--clean);color:var(--clean)}
+.seal.hold{border-color:var(--hold);color:var(--hold)}
+.seal small{font-size:var(--t-sm);font-weight:500;opacity:.85;letter-spacing:0}
+
+@media (prefers-reduced-motion:no-preference){
+  .seal{animation:press .42s cubic-bezier(.2,.8,.3,1) .14s both}
+  @keyframes press{
+    from{opacity:0;transform:scale(1.5)}
+    to{opacity:.95;transform:scale(1)}
+  }
+}
+
+/* ---------- notices ---------- */
+.notice{
+  margin-top:2.8rem;padding:2rem 2.4rem;border-left:.4rem solid var(--hold);
+  background:var(--hold-bg);font-size:var(--t-body);
+}
+.notice.fail{border-left-color:var(--seal);background:var(--fail-bg)}
+.notice strong{display:block;margin-bottom:.6rem;font-size:var(--t-md);font-weight:700}
+
+/* ---------- disclosures (engine source, worked values) ---------- */
+.detail{margin-top:2.8rem;border-top:.1rem solid var(--rule);padding-top:1.8rem}
+.detail summary{font-size:var(--t-sm);color:var(--ink-muted);cursor:pointer;font-weight:500}
+.detail summary:hover{color:var(--ink-2)}
+.detail ul{margin:1.4rem 0 0;padding-left:2.2rem;font-size:var(--t-sm);color:var(--ink-muted)}
+.detail li{margin-bottom:.6rem}
+.detail code{font-variant-numeric:tabular-nums;color:var(--ink-2)}
+
+/* a heading for a related-but-separate instrument, and a note under a table */
+.sub-h4{font-size:var(--t-md);font-weight:700;margin:3.6rem 0 0;letter-spacing:0}
+.fineprint{font-size:var(--t-sm);color:var(--ink-muted);margin:1.2rem 0 0}
+
+/* ---------- narrow ---------- */
+@media (max-width:84rem){
+  body{padding:0 1.6rem 6rem}
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .summary>div{border-bottom:.1rem solid var(--rule)}
+  .summary>div:nth-child(2n){border-right:none}
+  .form{grid-template-columns:repeat(2,1fr)}
+  .sheet-head{grid-template-columns:4.4rem 1fr;padding:2rem}
+  .sheet-head .no{font-size:var(--t-body);padding-right:1.1rem}
+  .sheet-head h2{font-size:var(--t-md)}
+  .sheet-head .state{grid-column:2;justify-self:start;margin-top:.9rem}
+  .body{padding:2.8rem 2rem 3.6rem}
+  .verdict{flex-direction:column;align-items:flex-start;gap:2.4rem;padding:2.8rem}
+  .verdict .claim{font-size:var(--t-lg)}
+  .seal{width:11.6rem;height:11.6rem;font-size:var(--t-md)}
+  .cover{flex-direction:column;align-items:flex-start;padding:3.6rem 0 2.4rem}
+  .cover .side{text-align:left}
+}
+
+/* ---------- print ----------
+   A facility director will print or PDF this and bring it to a meeting,
+   so the printed form is a real target: every instrument open, the
+   verdict never split across a page, and the screen-only chrome gone. */
+@media print{
+  :root{--paper:#fff}
+  body{padding:0;background:#fff;color:#000;font-size:11pt}
+  .filetools,.detail{display:none}
+  .sheet.closed .body{display:block}
+  .sheet-head{background:#fff!important;border-bottom:.5pt solid #999}
+  .file{border:.5pt solid #999;box-shadow:none}
+  .summary{background:#fff;border-color:#999}
+  .verdict{break-inside:avoid;border-left-width:.3rem}
+  tr,li{break-inside:avoid}
+  thead{display:table-header-group}
+  .seal{opacity:1;transform:none;animation:none;background:#fff}
+  a{text-decoration:none;color:inherit}
+}
+</style>
+</head>
+<body>
+<div class="recorded-banner" role="note">
+  <strong>기록된 응답 데모 · Recorded demo</strong>
+  <span>이 페이지는 실제 API 응답을 저장해 재생합니다. 서버에 연결하지 않으며 실시간 서비스가 아닙니다.
+  <b>입력값은 고정되어 있습니다</b> — 값을 바꿔도 결과는 그대로입니다. 직접 입력해 확인하려면 실제 서버에서 실행하십시오.<br>
+  Every figure was captured from a real local run on 2026-11-12; nothing here is live.
+  <b>The inputs are locked for the same reason:</b> in a recorded copy, changing one cannot change the result.</span>
+</div>
+<script>
+/* Lock the inputs.
+   A recorded page cannot recompute: the fetch shim answers by URL path, so whatever the
+   visitor types, the same captured response comes back. Leaving the fields editable
+   therefore invites the one assumption this file must never create -- that it is live --
+   and the visitor's conclusion is "it's broken" rather than "it's a recording". Read-only
+   on purpose beats broken by accident. */
+(function () {
+  function lock() {
+    document.querySelectorAll('.form input').forEach(function (el) { el.readOnly = true; el.tabIndex = -1; });
+    document.querySelectorAll('.form select').forEach(function (el) { el.disabled = true; });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', lock);
+  else lock();
+})();
+</script>
+<style>
+.recorded-banner{
+  background:var(--brand);color:#fff;font-family:var(--gov);
+  font-size:1.5rem;line-height:1.6;padding:1.6rem 2.4rem;margin:0 -2.4rem 2.4rem;
+  display:flex;gap:1.8rem;flex-wrap:wrap;align-items:baseline;
+  border-bottom:.4rem solid var(--rule-strong);
+}
+.recorded-banner strong{font-weight:700;white-space:nowrap}
+.recorded-banner b{font-weight:700}
+.recorded-banner span{opacity:.92;max-width:88ch}
+/* Locked fields must read as deliberate, not as a rendering fault. */
+.form input[readonly],.form select:disabled{
+  background:var(--thead);color:var(--ink-muted);cursor:not-allowed;border-color:var(--rule);
+}
+@media (max-width:84rem){ .recorded-banner{margin:0 -1.6rem 2rem;padding:1.4rem 1.6rem} }
+</style>
+
+<div class="page">
+
+  <div class="cover">
+    <div>
+      <h1 id="t-title">노무 감사 문서철</h1>
+      <p class="sub" id="t-sub"></p>
+    </div>
+    <div class="side">
+      <div id="t-api"></div>
+      <div class="filetools">
+        <button class="btn secondary" id="btn-lang" type="button">English</button>
+      </div>
+    </div>
+  </div>
+
+  <dl class="summary">
+    <div><dt id="s1l"></dt><dd id="s1v">—</dd></div>
+    <div><dt id="s2l"></dt><dd id="s2v">—</dd></div>
+    <div><dt id="s3l"></dt><dd id="s3v">—</dd></div>
+    <div><dt id="s4l"></dt><dd id="s4v">—</dd></div>
+    <div><dt id="s5l"></dt><dd id="s5v">—</dd></div>
+  </dl>
+
+  <div class="file">
+
+    <!-- 01 — the designation scorecard. Facility-level, not per-worker.
+         Leads the file because it answers the buyer's first question and
+         it is the layer the strategy doc calls the defensible white space. -->
+    <section class="sheet" id="sheet-elig">
+      <button class="sheet-head" type="button" data-toggle="sheet-elig" aria-expanded="true">
+        <span class="no">01</span>
+        <h2 id="h-elig"></h2>
+        <span class="state todo" id="st-elig"></span>
+      </button>
+      <div class="body">
+        <div class="form">
+          <div><label for="e-id" id="l-eid"></label><input id="e-id" value="HOSP-DEMO-01"></div>
+          <div><label for="e-beds" id="l-ebeds"></label><input id="e-beds" type="number" value="150"></div>
+          <div><label for="e-total" id="l-etotal"></label><input id="e-total" type="number" value="40"></div>
+          <div><label for="e-direct" id="l-edirect"></label><input id="e-direct" type="number" value="40"></div>
+          <!-- Enumerated: chosen, not typed. The values are exactly the engine's
+               accepted enums (see validateHospitalInput); only the labels are Korean,
+               so the payload sent is unchanged. -->
+          <div><label for="e-accred" id="l-eaccred"></label>
+            <select id="e-accred">
+              <option id="o-accred-1" value="accredited" selected></option>
+              <option id="o-accred-2" value="not_accredited"></option>
+              <option id="o-accred-3" value="expired"></option>
+            </select></div>
+          <div><label for="e-region" id="l-eregion"></label>
+            <select id="e-region">
+              <option id="o-region-1" value="metro" selected></option>
+              <option id="o-region-2" value="non-metro"></option>
+            </select></div>
+          <div><label for="e-days" id="l-edays"></label><input id="e-days" type="number" value="400"></div>
+          <div><label for="e-cost" id="l-ecost"></label><input id="e-cost" type="number" value="2670000"></div>
+          <p class="note" id="n-sample0"></p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="run-elig" type="button"></button>
+          <button class="btn secondary" id="run-gap" type="button"></button>
+          <button class="btn secondary" id="run-copay" type="button"></button>
+          <button class="btn secondary" id="run-batch" type="button"></button>
+        </div>
+        <div class="result" id="r-elig" hidden aria-live="polite"></div>
+        <div class="result" id="r-gap" hidden aria-live="polite"></div>
+        <div class="result" id="r-copay" hidden aria-live="polite"></div>
+        <div class="result" id="r-batch" hidden aria-live="polite"></div>
+
+        <h3 class="sub-h" id="h-staffing"></h3>
+        <div class="form">
+          <div><label for="w-id" id="l-ward"></label><input id="w-id" value="WARD-3F"></div>
+          <div><label for="w-beds" id="l-wbeds"></label><input id="w-beds" type="number" value="40"></div>
+          <div><label for="w-care" id="l-wcare"></label><input id="w-care" type="number" value="6"></div>
+          <div><label for="w-shifts" id="l-wshifts"></label><input id="w-shifts" type="number" value="3"></div>
+          <p class="note" id="n-sample5"></p>
+        </div>
+        <div class="actions"><button class="btn" id="run-staffing" type="button"></button></div>
+        <div class="result" id="r-staffing" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="sheet closed" id="sheet-audit">
+      <button class="sheet-head" type="button" data-toggle="sheet-audit" aria-expanded="false">
+        <span class="no">02</span>
+        <h2 id="h-audit"></h2>
+        <span class="state todo" id="st-audit"></span>
+      </button>
+      <div class="body">
+        <div class="form">
+          <div><label for="f-worker" id="l-worker"></label><input id="f-worker" value="WORKER-PARK-01"></div>
+          <div><label for="f-start" id="l-start"></label><input id="f-start" type="date" value="2023-05-01"></div>
+          <div><label for="f-wage" id="l-wage"></label><input id="f-wage" type="number" value="3100000"></div>
+          <div><label for="f-hours" id="l-hours"></label><input id="f-hours" type="number" value="40"></div>
+          <!-- The three fields that let the engine DERIVE 1일 평균임금 the way 근로기준법
+               제2조 defines it (3개월 임금총액 ÷ 그 기간의 총일수) and apply the 통상임금 floor
+               (같은 조 제2항), instead of taking a monthly average on trust. Optional: left
+               blank, the supplied 월 평균임금 is used and the ledger says so. -->
+          <div><label for="f-3mtotal" id="l-3mtotal"></label><input id="f-3mtotal" type="number" value="9300000"></div>
+          <div><label for="f-3mdays" id="l-3mdays"></label><input id="f-3mdays" type="number" value="92"></div>
+          <div><label for="f-ord" id="l-ord"></label><input id="f-ord" type="number"></div>
+          <p class="note" id="n-deriv"></p>
+          <p class="note" id="n-sample"></p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="run-audit" type="button"></button>
+        </div>
+        <div class="result" id="r-audit" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="sheet closed" id="sheet-cred">
+      <button class="sheet-head" type="button" data-toggle="sheet-cred" aria-expanded="false">
+        <span class="no">03</span>
+        <h2 id="h-cred"></h2>
+        <span class="state todo" id="st-cred"></span>
+      </button>
+      <div class="body">
+        <div class="form">
+          <div><label for="c-worker" id="l-cworker"></label><input id="c-worker" value="WORKER-PARK-01"></div>
+          <div><label for="c-lic" id="l-lic"></label><input id="c-lic" value="KR-CARE-2023-88491"></div>
+          <p class="note" id="n-sample2"></p>
+        </div>
+        <div class="actions"><button class="btn" id="run-cred" type="button"></button></div>
+        <div class="result" id="r-cred" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="sheet closed" id="sheet-match">
+      <button class="sheet-head" type="button" data-toggle="sheet-match" aria-expanded="false">
+        <span class="no">04</span>
+        <h2 id="h-match"></h2>
+        <span class="state todo" id="st-match"></span>
+      </button>
+      <div class="body">
+        <div class="form">
+          <div><label for="m-req" id="l-req"></label><input id="m-req" value="req-elder-01"></div>
+          <div><label for="m-hours" id="l-mhours"></label><input id="m-hours" type="number" value="40"></div>
+          <div><label for="m-ot" id="l-mot"></label><input id="m-ot" type="number" value="5"></div>
+          <div><label for="m-cands" id="l-cands"></label><input id="m-cands" value="WORKER-PARK-01,WORKER-CHOI-02"></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="run-match" type="button"></button>
+          <button class="btn secondary" id="run-risk" type="button"></button>
+        </div>
+        <div class="result" id="r-match" hidden aria-live="polite"></div>
+        <div class="result" id="r-risk" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="sheet closed" id="sheet-visa">
+      <button class="sheet-head" type="button" data-toggle="sheet-visa" aria-expanded="false">
+        <span class="no">05</span>
+        <h2 id="h-visa"></h2>
+        <span class="state todo" id="st-visa"></span>
+      </button>
+      <div class="body">
+        <div class="form">
+          <div><label for="v-arc" id="l-arc"></label><input id="v-arc" placeholder="000000-0******"></div>
+          <div><label for="v-type" id="l-vtype"></label><input id="v-type" value="F-2"></div>
+          <div><label for="v-nat" id="l-nat"></label><input id="v-nat" value="China"></div>
+          <p class="note" id="n-sample4"></p>
+        </div>
+        <div class="actions"><button class="btn" id="run-visa" type="button"></button></div>
+        <div class="result" id="r-visa" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="sheet closed" id="sheet-watch">
+      <button class="sheet-head" type="button" data-toggle="sheet-watch" aria-expanded="false">
+        <span class="no">06</span>
+        <h2 id="h-watch"></h2>
+        <span class="state todo" id="st-watch"></span>
+      </button>
+      <div class="body">
+        <div class="actions"><button class="btn" id="run-watch" type="button"></button></div>
+        <div class="result" id="r-watch" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="sheet closed" id="sheet-pay">
+      <button class="sheet-head" type="button" data-toggle="sheet-pay" aria-expanded="false">
+        <span class="no">07</span>
+        <h2 id="h-pay"></h2>
+        <span class="state todo" id="st-pay"></span>
+      </button>
+      <div class="body">
+        <div class="form">
+          <div><label for="p-worker" id="l-pworker"></label><input id="p-worker" value="WORKER-PARK-01"></div>
+          <div><label for="p-wage" id="l-pwage"></label><input id="p-wage" type="number" value="2500000"></div>
+          <div><label for="p-hours" id="l-phours"></label><input id="p-hours" type="number" value="160"></div>
+          <div><label for="p-depend" id="l-pdepend"></label><input id="p-depend" type="number" value="0"></div>
+          <div><label for="p-child" id="l-pchild"></label><input id="p-child" type="number" value="0"></div>
+          <div><label for="p-type" id="l-ptype"></label><select id="p-type">
+            <option value="employee" id="o-ptype-1"></option>
+            <option value="business_income" id="o-ptype-2"></option>
+          </select></div>
+        </div>
+        <div class="actions"><button class="btn" id="run-pay" type="button"></button></div>
+        <div class="result" id="r-pay" hidden aria-live="polite"></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+
+<script>
+/* ------------------------------------------------------------------
+   RECORDED-RESPONSE SHIM — this page has NO backend and makes NO network
+   calls. Every response below was captured from a real local run of the
+   CareBridge API, then baked in. Buttons work; the numbers are real;
+   nothing is live. Injected by carebridge-share/build-demo.py.
+   ------------------------------------------------------------------ */
+window.__CANNED__ = {"/health": {"status": "ONLINE", "service": "CareBridge Korean Labor Compliance, Visa, Audit & PII Scrubbing OS", "version": "1.0.0", "security": "AES-256-GCM PIPA-Compliant Sidecar, PII Scrubber & Audit Monitor Active", "autonomousPolicyWatcher": {"status": "ACTIVE", "lastChecked": "2026-11-12T05:17:04.327Z", "oldestTrack": "mohw_caregiving", "ageHours": 14.6, "staleAfterHours": 24, "tracks": [{"track": "mohw_caregiving", "lastChecked": "2026-11-12T05:17:04.327Z"}, {"track": "insurance_rates", "lastChecked": "2026-11-12T13:48:22.733Z"}], "neverChecked": [], "notAutonomouslyChecked": [{"track": "moel_statutory_thresholds", "reason": "statutory constants, not drifting values — see policyWatcher.pollAndVerifyPolicyUpdates()"}], "currentRegulations": {"severanceThresholdWeeklyHours": 15, "overtimeMultiplier": 1.5}, "minimumWage": {"hourly": 10320, "monthly209h": 2156880, "gosi": "고용노동부 고시 제2025-47호", "effectiveFrom": "2026-01-01"}, "insuranceRates": {"effectiveFrom": "2026-01-01", "employeeShares": {"nationalPension": 0.0475, "healthInsurance": 0.03595, "employmentInsurance": 0.009}, "pendingNotApplied": null, "sources": {"nationalPension": "https://www.nps.or.kr/pnsinfo/ntpsklg/getOHAF0104M0.do", "healthInsurance": "https://www.mohw.go.kr/board.es?act=view&bid=0027&list_no=1487279&mid=a10503000000", "employmentInsurance": "https://www.moel.go.kr/news/enews/report/enewsList.do"}}}}, "/api/v1/hospital/eligibility": {"success": true, "timestamp": "2026-11-12T19:55:23.158Z", "eligibilityResult": {"hospitalId": "HOSP-DEMO-01", "hospitalName": "HOSP-DEMO-01", "evaluatedAt": "2026-11-12T19:55:23.154Z", "policySourceLastChecked": "2026-11-12T05:17:04.327Z", "policyProgramStatus": "pilot_pending_confirmation", "status": "eligible", "conditionalExpiresAt": null, "hardGates": [{"criterion": "hospitalMinBeds", "required": 100, "actual": 150, "requiredValue": 100, "actualValue": 150, "unit": "beds", "pass": true, "reason": "Bed count 150 meets MOHW minimum of 100."}, {"criterion": "directEmploymentRequired", "required": ">=100% of caregivers directly employed (default placeholder pending MOHW's published threshold)", "actual": "40/40 directly employed (100.0%)", "requiredValue": 1, "actualValue": 1, "unit": "ratio", "detail": {"directCaregivers": 40, "totalCaregivers": 40}, "pass": true, "reason": "Direct-employment ratio (100.0%) meets the configured minimum of 100%."}, {"criterion": "medicalAccreditationRequired", "required": "Accredited (의료기관 인증), mandatory nationwide from 2027-01-01", "actual": "accredited", "requiredValue": null, "actualValue": null, "unit": "enum", "requiredEnum": "accredited", "actualEnum": "accredited", "requiredFrom": "2027-01-01", "pass": true, "reason": "Hospital holds current 의료기관 인증 (medical institution accreditation)."}], "trackedFactors": {"admissionBenefitAdequacyGrade": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 입원급여 적정성 평가 등급 (admission benefit adequacy grade) as a selection factor but has not published a minimum grade."}, "nursingStaffGrade": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 간호 인력 등급 (nursing staffing grade) as a selection factor but has not published a minimum grade."}, "nonCoveredRevenueRatio": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 비급여 수익 비율 (non-covered revenue ratio) as a selection factor but has not published a maximum cap."}, "severeCaseMixRatio": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 의료최고도/고도 환자 비율 (severe case-mix ratio) as a selection factor but has not published a minimum ratio."}}, "failedGateCriteria": []}, "secureEncryptedToken": {"keyId": "eee9dc1853b53d9f", "iv": "7f3bd7c9b319b4665840f317", "authTag": "5e4004d5d856de1f6efa77ed620fc975", "data": "7705b5ca50ddb6e10e9220335e227d3aaebda03b74f9332cb23f2244efb80c9d664dcb89d621e6a5eca49b1bdd07518f38669e9693958f033b3a57554705793080affd8cf85734066c24550f20de6fadc64b414eed56700cd5b790c4713e9f8bce67d65e10f2417334f815ff4b069a560bb35a32de1b34adc90f996a72ea296d3f74bdbde3a2ed30db63460726369294e1b9e6519d39f71106fa1a573bc7eb47be46daa17b33baf539902d1d09f9a0df30e833863de674b6ba0cd95bb4583c111c9a447e6538f409b06ac47b477b9befc792618f552f70f712e481e8eb317d78825f5d4ec21967580ba3589e01aa7d97d99fe58edbbf89d8a2658b33ab6dac611796abecc49921363370d8b4a8a74e486dd4cc368ac67ef98b50f3b438365f4b0f329b74d9cbe55b8576611f5972e2ee5b1a0648513bd03144fdd54f4de30b65892d9fbafb9a744f54eb190333ac34dead6ad117481b3a4367d9fb4e9afe01308894e53f9efda590f6b26cf0d65e496605683b22051a16ae9f29e4bc714b88feb98dbed12f332b7e585502613e14218dfb5bdb9d14bf0a92c732d07795aaee3e40110b2eab3c47679d24fd45fc954c26dd81e547ca338b67b7ac07bea1ccd320ed50267cea21c95f880661074aa4e4479b7fb47ac201d7bdd51e508627c8730acefc31f12b3178896fa13ead101b389e354d02b0866b4d939d439eb8f0e6478e6934f84a1107bc28e51363c8dc9810ae6484415ffd4040ea8f4270b01f5db10209294ebe97b68890a827a4fa22e6724f13c1c22330e789e0888703874eb5956a51a9dfcee8b22649ee10c4fe77ecd1a5af1e7ca700ac9028285ca5a9cf5862eb7b1ab9b57f36b7709b7e3adf51dbcc5bab6aae02cf92e321f133b69c77bce18aab9aa27786d12ca23a0ff16c62c4bd0bb88b88a47a10df6d95ed6bc30725ce536f820d473ff474940c635bdfe42c407945662f09e742cd7bcaab1659f0fb28f987b51b4824940a4ec3af89a8bcf2ab29e3a7177712fc17e0fd7da00d9b077a824d2e9772b74e4db23024585693b9dd243cc9601d18b78d871b10e9ba66569456bda75d4daebc5ecd46e68e25ac6503b2297285caf0f433f36101ab4de941e0dadd34272f64435f04011ce1d192eeffc3e735db4b901a04b88305030a2ae8790ffa29e5207d50bad9fdfb79c220ea4da1a34aae60905eabe3a4dc532f445a784b26ffbdcba7438d505a9226e5a6a415ace5a5b3f587c2ab4b82b11aa9f491ffcfa4bc4e291ac42e801c31b2dbd84ec887a50b0db58e590c41160ca6623ecada68a965218489e8f17476f1b8fa01e63b2c836396e278f044b80346abf00ef2c8cc30f2ad8592adb7898d79de703ed60e68652f3a8fb7f26a7f318f07595bfb21d9294306a0caa1967f7018fbb1f18266189a3016835a6a9082f114c4178d77123f708206664a968cb25d57db90be1223ffe09e35625abed55546418b812e21bc898e02d54350ee1a0e98caaf5dbae87e949b20a8c1772f659cc6bac38537d52eb30e4b22fef45f2bd855bdde7388da9eaa6f5b609ccddad544a948aafbd9e8114d7fb6f3e36e13abc8ff3c7ea1dd1f4168e6bb27c799e51933edf919601d4f6a57f095ebb79c77e2470854175bd4a95cdf71a4491a56af38420fa68f841d7b661cef12865836278e89c83bbba8f38e06e39a3373eb234c7fce4310e19d92c4aeac07f82ae2e4ad73e7581f753f9c554ea3e1d48fd4f5b25fb7a28a72f617e2f1ae75477656c294879c88aeefb370468cce2fed5202e861c6d97db17dcd81e79854e41b8698b54fd3eed078b74427c5072bc8c4c9b3043dcca83175efbcbb59b8c14da87a9c10291b0864c31c002ccd92a3bd742ecd31cdc5401260ba50808f43e283a34e2d707c290dd4b7d802ae7ecc8b3e90b22117d6c31c7f7d30a0e6d2e9d937f66d6e8dfd49fcc2a8511fe1750c89502263d4c484e9f4be71861504ca414e1ad8aa321e3e62f2712f33e3151215c797c50f77c0b194d7e1f115df83d0c5fc9a9422f4adf3724dfe0962ea4d6e317fa43db24a18a02b89a651abacc79862cc4d7593223f4ca08e3ed6df314d4e3a072f6705e74a4403ae1535b9a601b662982a7d3f1a53f6ce4c59d7d8fe6c4b50bc1f5c99132d7895a8236cb2599d93a90a1b3fb371b14f4ca8f0c3e2e0bba24349977a5420bd89afa71725d44342fef8e949c0fca5e2ac75d7470170068f10c2968ebeb28002f58b4be89d93cbf0d96b933e500cce997e264f79902cc845a83b3ec3c968852815374a23d224de989bdd317f6ca355e8d2563dc0748a48d576c31172b1b6296ed36605bcd738306c16e11987848cf2add2a0caa9554f3d18288244c501d351e1acfdb9e1cca077e4b94d1ef9dda0d6ec499a69383a9e74c3aa5e3694a77856f492384358352c8bead1a16be3b39b4e12a27fe2db0735792ec92e17c0ddbf0e3be9bb9dfcfb2079b2e7b179f383cd7cd0073e7edc4a0abfe69e34d544582b14f520152df1df041edea819360fcad1381b6b287410b9c9e0e0fb83756a7f50b28e2e59a8bb37395e1406b1def05ac65025ef7de77f3c1663894932b301a6d951fc2c4c2f87e55022549dfc31ac9022a9a56051bcdcd3daf319c6967fa79f1ddde982bad599f1df7ea56d4f39f3a375c4fbe734fd0e2eafaff69eff43b6c117ee736492c4bc7981b2586d6f80e4b903bc3c328558813e5fa6f96f3cc91519b67dbaa372d75793faed8b2b391f41fb4af0623929adfa119d040b4d6c02275c35616e6d8c0ca872169d7d0ec2e38fcd7af6456568add449466253440caba7e269053de7355555425e69683227e9e995d94cbbd1dd2ad7cfbf45b94108dbed2bebfe9d1938104763d3a91a2e55479e557cabee8a1c77e425de4c8df904dd9ec567e8eb8b9f1263a1d98b2893b284c6286991811863612d90f49129173551036d711b8f97af54055f9cf24f3b3dc166c363b227a52ec626cba2be09632dd70a7577d2f6de5e0923aa9a6d3347b2fc6a9d5e873522e40877d24688f100dbabc4a4e21708"}}, "/api/v1/hospital/gap-report": {"success": true, "timestamp": "2026-11-12T19:55:23.165Z", "gapReport": {"hospitalId": "HOSP-DEMO-01", "hospitalName": "HOSP-DEMO-01", "generatedAt": "2026-11-12T19:55:23.164Z", "overallStatus": "eligible", "domains": {"facilityAndEmployment": {"hospitalId": "HOSP-DEMO-01", "hospitalName": "HOSP-DEMO-01", "evaluatedAt": "2026-11-12T19:55:23.161Z", "policySourceLastChecked": "2026-11-12T05:17:04.327Z", "policyProgramStatus": "pilot_pending_confirmation", "status": "eligible", "conditionalExpiresAt": null, "hardGates": [{"criterion": "hospitalMinBeds", "required": 100, "actual": 150, "requiredValue": 100, "actualValue": 150, "unit": "beds", "pass": true, "reason": "Bed count 150 meets MOHW minimum of 100."}, {"criterion": "directEmploymentRequired", "required": ">=100% of caregivers directly employed (default placeholder pending MOHW's published threshold)", "actual": "40/40 directly employed (100.0%)", "requiredValue": 1, "actualValue": 1, "unit": "ratio", "detail": {"directCaregivers": 40, "totalCaregivers": 40}, "pass": true, "reason": "Direct-employment ratio (100.0%) meets the configured minimum of 100%."}, {"criterion": "medicalAccreditationRequired", "required": "Accredited (의료기관 인증), mandatory nationwide from 2027-01-01", "actual": "accredited", "requiredValue": null, "actualValue": null, "unit": "enum", "requiredEnum": "accredited", "actualEnum": "accredited", "requiredFrom": "2027-01-01", "pass": true, "reason": "Hospital holds current 의료기관 인증 (medical institution accreditation)."}], "trackedFactors": {"admissionBenefitAdequacyGrade": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 입원급여 적정성 평가 등급 (admission benefit adequacy grade) as a selection factor but has not published a minimum grade."}, "nursingStaffGrade": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 간호 인력 등급 (nursing staffing grade) as a selection factor but has not published a minimum grade."}, "nonCoveredRevenueRatio": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 비급여 수익 비율 (non-covered revenue ratio) as a selection factor but has not published a maximum cap."}, "severeCaseMixRatio": {"value": null, "status": "recorded_pending_mohw_threshold", "note": "MOHW has named 의료최고도/고도 환자 비율 (severe case-mix ratio) as a selection factor but has not published a minimum ratio."}}, "failedGateCriteria": []}, "staffingAndShiftCompliance": {"wardResults": [{"hospitalId": "HOSP-DEMO-01", "wardId": "WARD-3F", "evaluatedAt": "2026-11-12T19:55:23.163Z", "programStatus": "pilot_pending_confirmation", "requiredHeadcountPerRoom": 2.4, "currentAssignedCaregiverCount": 6, "currentShiftsPerDay": 3, "meetsForthcomingStandard": true, "notAssessedCriteria": [], "findings": [{"criterion": "roomConfiguration", "status": "track_only_signal", "gating": false, "values": {"actual": 40, "required": 4, "unit": "beds"}, "detail": "Room has 40 beds; forthcoming standard targets rooms of 4 beds or fewer."}]}], "allWardsMeetStandard": true}}, "gaps": [{"domain": "staffingAndShiftCompliance", "scope": "WARD-3F", "criterion": "roomConfiguration", "currentValue": "Room has 40 beds; forthcoming standard targets rooms of 4 beds or fewer.", "requiredValue": null, "currentValueStructured": 40, "requiredValueStructured": 4, "unit": "beds", "fixability": "structural", "recommendedAction": "Room has 40 beds; forthcoming standard targets rooms of 4 beds or fewer."}]}, "secureEncryptedToken": {"keyId": "eee9dc1853b53d9f", "iv": "15935e56d659d39fea159147", "authTag": "09ccbf39f61f7ed0e8e235e15c21d853", "data": "db5645d09960cb30753ea88efebee4b0f1c00e63f6235417665388f6b2aa2bdc86ea18e6218fdb3ff80fd5f510fb5cdf16090c96566ea05773a8cc86ecedb8c04c188d019fe8c13a4d3b0d9a9ffbeb964d780e76a8f5689a6b361fee35038a55115a7a3c5ba94c78c13f845c4586773702f5743d2f12ddb0c60f94abc8a3768bb0b98a839a202ab83b3254ffaa327a0886d88c5c70d1ca9f9fc9e80d5562ad6c5447e5dbcd0eded2b1e1db96b31062cf69cb916fef0250b303e9dba82be817b2cab9ed11d13cbf0e84d3fa8232646d665d352cd374a0d22d7e9c83070769fa8ebc2bcc3ecb35afc6050d39545d33ee05e7411c06fe2283693cc75e2ba3ce3faacb0a98a43082dea682b39821d8cd5da3bf274fc38cb67403fd22e591b0906893172fb2616d2240b5ff56f22ca340d31f20aae0d91c74398ad03d2446249779b00059dd77b031901cd9cec3c2324f5cdb4a6724fc0089e67ea68b528495fec93911dc87a5ff9594c7bc534add8db68ca9eddc973ff98d4188741d35a9d209897d881dedc8c2d8460cb7a9c917829c25500ae4bb3bd3ce4f9ab673412086de96397f6f52dd1f458eb2884da41bdb4b7eabf0dd3fdd09a334186f3865479548ac04f4a0e9f0b306db5aaed4b73116b3dd37ec7b2fb31ff2ed9aab5e3fb8f1e55e90085583195f94748f05f32c276dfe7b8321af4e88674d839495e02dfaf9d29d124e67133bf55a12c6c83ad2c330fa5f9976b2a05c3a20925af6a70f8e61076afd9cb046aff3af5b4a61163039d5eff63feb3190af569f594f413229ef5956f39981ea22c90da87c9c7b676053f2a6904aa0c8aa623989a452004094b2da9743a1c245ab153d96259bfc4af06373f5990b38db1611d4c461a10260b5649ceac66e1afcf3f975bd8466c3d1db0d0f83b54a818e9f381a0cbe2053b0f2e6fa42539ef76fcd99622948ca866982a5ac3a2a8847c70042185451a2b276a08c284dfeaa94985c3f3061f06f059f747c3760b5b3c649a65eec1100743e1a7aa4dbe2e88399442eb618b5b683cf7f94726c25fdc85de9e0301c76cd7b32a6c19bafcda781fc9fcca9e1f06a74ed430ec3aaf961d766694d29a12c5826d7b37ad18b8f7987424208b98701d5bd2aa4fa06333ba329bc741d9cf0edf5b7ffe172429d0e559385554375780f1117fb40ade662e93b18cda827c8ea3c0cad5a4f9b1a43ba98c5c2975afc04744b6b89268ca4fc962864f07c042bfa0f90de9c44168ee38b509aa9a6fefe023bf552fbd12ae5bb8369cc8ca8e8b66447b2fca22e157b8497f04be428f5c696c15fac3f37f0122e5f511cd6e790d477e6e5b145e292fce5e14217230bc86d55315882c1e512f4e47c3abe7698192b40d942659f5519737deb4b72c3974f2852f3f092136c9af4635676e81905c0363d50e3daee9756128b32d67ab75b66400d88d704a7108ad51542dee6c9ab5d601553c43ce874b189cefde8f028b7ad103871076cef2da1e7914100c1af6da3ced9acb39b814cc0d9208ca2e619e56a152555696f7b98c78bd0b3573c9cc4fa2bee705c9d135438231769876305fab116d2cd57b019b864f878724756d194d82c9b8da457f8384e55922ee81eeb81eb912fbd997d0ff744418f7aa1a536a39ac80717f7383d6569ab2d1555373b239c21645ec5ed7dabf8e0e5a5da2d8c66c6ebb28eeba815a5a0d16234539ec8919c7e23cc3a1f9f76fcf6646416825b0d177c97b61170a3c12a603ebc3350aadc608edfa9bcdf5fe37619881056afb60a13b05f5b75bedc1f9a922ab914a998a077fe162a56790b7b3f292d1d119d7b7415dcd0c4df0b258d3b50981be9e40dad9958e95b625788b2f793ad87b58646cfb6f02081eb13de093c2d37fd7f89f5cb30bff88a15afa245d75d401a41f5d54a4aad885ebf194a4fcade0d939fb652161e47d071181f7a0a7cb719f3ff361c54ed7219eb7b5fec507b47ec9daf6cbec7880d2e477c3e95c31bbe4359ecf83b440c9d92593472c4eab3d4ad75b474ace63fcd3e4ba9c5f80ab252db92d06196b01fef3f390ced3728c261dec493c9159d76c19b1acdf68f9527455a05cdd1aa7fc19dba17acc9a3413fec6920ad7ed0d6f96e751bd711a38ca5411a7a5ea87b7a9ac8480388ff8b7a51de0adb9eb7b4bc8f98ffc7958e49db20c21c080d4dd7fd92737af9f3ea77a377a0cfd93d7f2cb375b8b39584ca72b5cd6645d55edfeb8432a7cca3f9813765d06dde11695dafc1718c5184b804d176d2acae624cfbe083d436b9d458d8946f45b77af07da21a038b8ccb614515d983f9f8b9c612ec6c9d8b62ba981caa1886af06f21347c6731d08e14ad14b38ae95f8909430679dca2aa1192bceca9935c0a8d143d2628813bbf74f682dadc8c6da855c27d2dcd7b78e75483828a44ea6e9b10911e231b7df09b29960385b008afb1e3a418e5d029bc7db5e9c442b6372ce7520630c83f3b2c0bb01294f51e756e030d47022a554d61de0d089e3eea393ff5ff062bc10efb1424c46854f6d9db99093466dbceaaf0ff7eb9afdfd816d3307ab5d73719d07bbbd669fd1c8f88ad1df247caead99a3b6ed27b3718d52acbc60f2f0db10742e0855d26304b28afa487628d044ffed757ce062f7ba4bbefcd3a2f832be48d22b898dbed2cfd12621fdaf319cf57a8dc52e279bf07afda1b8d1c80bd2627aa1f72b302d47b7d411f2a37cbc8acf56b0de692af6d6a3d6c51cec940abe223c163b1eb0274abebaa72a28d9a362178d0f77e9576f406660da82b87c66d04a85c24d1ce25d5486bea0083da58e7e76f9b3ff4ac68065a5d5850875249a47523ce0a18ba3cea6d096f448d70605d706504baedf93bbe5b20bc91ce21c6a22dceee7bcb28ad43f1675dc696264e26b99776b533ef517af7aecf5f547521e07b5f56bc305027a50c04c735ce48f6e1ff10472f3284ec875e8bd47b96417150b516a6a9b74516c8360fcaef421ca58d3d0438a71b9ea3a49fe76a2e22e0ed095c6e13d59c10e620fc057327bf1ab28cd0dab78c1d8e8736799952b2bb2f603ee716a79df34d245349e7259e0b2d855b70c4a7059437cf2551ce765a05e5317cce096c62563823d33186da41669a5926be563e50e497a863d3665da95f0c07e25f149f197e719b7d94c1cd7a101d70fe24bb0ea8f0a82559418e03d6288a5438861eec28cd7a953a968ad1fc4a782f2daa60bcf443126f9e4c1b340b26e3af2ce5a48709eaffc0c3d5cf36fcc2795a6113cf40d7f23c0190ede36485d8f0a81dc760d7ec080f80d4573105e4ccbc26c6c5421ad04333728c6135606502c82edf69feb79ee3df00d007a156652edacc7c2d000042767bcd0773c1ba5b3afc3cf540ae9c977366b3a0d7f314b8eb1a2065d34189d39c88f3a415a6a3cef66b3a1bc60f661faff82ef1cc3669e3fdba66725e2b3ff1a0c5bc07ccc7adbfe4da188274f5fdbb6b207548580acb10279a7505381ebd713d93e74e6bba4aa57d30ae5b85554afe33c2ae2b977b0efe802bb4b4ce3c0addaa892ec2d51eda4c71575912dd1f2c821ef2fb5b9aaffbc31ae0e94835cd2a3cc19d1429dc05d8480ab5d129cdac1bf32117448df08a1d0183ea22814ee45f461f52a10846627d641cff2260f53d2fcbf6d560a2ba1ab4257617d81cc244640efd8d558cdf705a177e976aa478f2d8235ceaf8a6ac63c44c47a157b30f61edc8618d74bac2236669ac194fae3ef23f39ddcb491de372a4dc8300b75189142e6d97ebac4918877f7c8af16dbecbfbd2f3dbc68be6346f4326faaf6c74a08bb04dacd82c32ecb5e0b3d0a3f905e654430401f4980bb154d185bfd7339657164225cba769fbf37e8f70ead78dbd0fa3f5c5e468e303de6806c8d51308d33fca4eb2e9d06076093800ba6b2b58dd32f250c0895ac53c59bb7a21a9e345bfb19317f34563ce541496f118d16d113295384441e1976a3ef9bfa01b623731c30b21fe73c7d075d7570a118bf5e1386b5fc87c58ea4e6d793299da36c11779f78589ec6f7cb50bfb4cdceb10e0504faad6fccecdd045e5623a205d648c757ba3753f4ba71d8dba3c3fa8360877d0db65d55a5f316ffb998158910b63e1e285bafafd5cc7656b1bbd6e49da64555624c5e502bf4fc317c258d388a1cf51b89aec01aa166c252dc4a3f2fd1629e0fe300fbb0dcf92b789afda7518636e57d8b0b02272386dbb2dd0bfc236c05544c407cac29457b172d3d43d704179c1cb7ea2f6c3898b6286f557b184e2136c302bae9cd8df472f467227b505debdcc19e4b10c5ccb9a022bc875002a78180382db7848d7a437f70e7a9cc8dc2a1f34d22358cb26d889badb3e134d41bbb45c59f2c200257a9e79044533fe8aca00010c1288eeee4848097cd927935de9b659966f4c5d79c0dc0a20b0f0066f71ba4cebcb5971181876286bdca116d3988e9a11e9f9b292665cbfead726cf46f18a540fc97c33ac9ccf78a7188ce58dad287bcc7dc5eaa59bfca93392d1667a3a8b2adcf5d458ba7d75ed9fd70133aec4cab7d7eea2d6a909e8282c3e99f723af5c45650c5e2aeeddd3f7502d5866cd8d2a8fa211e83e122af748f391e27d8f206091463c3f1835eb0a2e81e53018eebed3117b1c2f4170452e35563070c3ba28e195590fd489410519b"}}, "/api/v1/staffing/evaluate": {"success": true, "timestamp": "2026-11-12T19:55:23.170Z", "staffingResult": {"hospitalId": "HOSP-DEMO-01", "wardId": "WARD-3F", "evaluatedAt": "2026-11-12T19:55:23.169Z", "programStatus": "pilot_pending_confirmation", "requiredHeadcountPerRoom": 2.4, "currentAssignedCaregiverCount": 6, "currentShiftsPerDay": 3, "meetsForthcomingStandard": true, "notAssessedCriteria": [], "findings": [{"criterion": "roomConfiguration", "status": "track_only_signal", "gating": false, "values": {"actual": 40, "required": 4, "unit": "beds"}, "detail": "Room has 40 beds; forthcoming standard targets rooms of 4 beds or fewer."}]}, "secureEncryptedToken": {"keyId": "eee9dc1853b53d9f", "iv": "6b821f80ca663905aad14217", "authTag": "d7786a31b70ed28dc9e7b02bcc37ad2d", "data": "95e4fdba60fdcf6c1fdbb535fd819deda55a8dff6e1b66c417e540c15f35fc5588d9a1a8620120c0feeb66873bae6aaf9db2f23e9576f0dcb99b1aac7e97c284dfdc8f69bfa648d144ed906791680a67974459b6f0f85fc34f65e3de0c7c9dc0da88fd39a9bea6fe14014f1a9c6bf9d3c916a79a8ed6dc9b606302be09c9d9cd09f53c91fcc2f1f9558b1912a3861b099d59a25a95c9e23e3d44181bb6800240181fe8dc32a8d174bc5764c827993b0fe398dcfff280720223eea7074c634eaaefc97d054bdb53ba9ec1550daf36cfff1bae8ed213c356696748a644f88143667c398b4c022ee527a4ec55b8328cff4c99f083e78b8bc68646433a1ab31d081fe8afe685bff911856569b3f54fae28df2d7b7055658ef5c8dc672ee8a97b22c5cd440cda6af6a4a657189ab21d6442fad3212cb16884f1dcda14bcd1360402c3cc80cd07d9d99c3133c73546d5c296cdb27b3eca1bfc705d2ce74a90c400978298e363920f3d9813cb6b3b940a1f5a141327d050d0f72570c3192080e811989b8d54b9e3225e3ae4c0aae1c05cd0d0b89c7a4accad0626e5834208673a2a6f71e2278a7bf70a8b47633e28fce42596e841b57f297b862c1cd9fdf09fd0f8f5dac0a6277135eebca32e86bb02fd65a37f43add4d2eae809118dab9cc586094d391ad99984b301847ff371ab49e32dbc3c49c915732fbf4099b5"}}, "/api/v1/patient/copay": {"success": true, "timestamp": "2026-11-12T19:55:23.173Z", "copayResult": {"patientId": "PT-DEMO-01", "hospitalId": null, "evaluatedAt": "2026-11-12T19:55:23.172Z", "policyLastChecked": "2026-11-12T05:17:04.327Z", "admissionDurationDays": 400, "isNearPovertyTier": false, "baseCopayRatio": 0.3, "penaltyApplied": true, "penaltyRatio": 0.2, "finalCopayRatio": 0.5, "tier": "long_stay_1yr_plus", "grossMonthlyCaregivingCostKRW": 2670000, "patientCopayKRW": 1335000, "nhiCoveredKRW": 1335000}, "secureEncryptedToken": {"keyId": "eee9dc1853b53d9f", "iv": "68920451498a75414a5ae09f", "authTag": "2cad52804020b282d48b42ac4b142640", "data": "222da436d2219ccb9e1a2bc5140156a92706b25c1ca2df7694cdf1436f18e9ec0c728cf182a35ae668bf83c831a488cfe81c1e71b51722999c7eeac25a6e548e6651b9a73268313be7e9eb06ebc57bbdd0231133722605ee6d74ea8f74336df7d18fa365dd0fd554722ad11d3b05565e6fa9e8013b5622b03b4885a3a36ad534f83468f13202571b3c19e7e14757d7456e8f377476608ddb1ffb80879e4d8eec051ae4fa8d9b55b57b68f58d1a2d14a3a886053f8b3fb54f35b0ecd377980f75a0c12959b874e3a97aa4a4e5c24dd97c3d520eb6846de0372735bf1360408bc353d5f6a4a9611c7e3dbaa7bd00e24e0cd0cefd1f2eb21d14125157c66277cd5d1daa02c86b0f7210bd0c18aa7ff10283e50b1e339c251860a820e9f9130c9e46d14777e9cc5dc44cfc029cae52acc9e11379aa4ee50c28a4fd519e2af6b38b92e8f753b4bc5fb3b2f15ae81c5839d9b78e86fd4c2469f0316db0d07f64163f472ba248375c5ec6ae5c1aa30ab3934c724e60c57ef402ffd47ed15eecfc170a77cfacd9f4"}}, "/api/v1/patient/copay/batch": {"success": true, "timestamp": "2026-11-12T19:55:23.177Z", "totalProcessed": 3, "copayResults": [{"patientId": "PT-DEMO-01", "hospitalId": null, "evaluatedAt": "2026-11-12T19:55:23.175Z", "policyLastChecked": "2026-11-12T05:17:04.327Z", "admissionDurationDays": 30, "isNearPovertyTier": false, "baseCopayRatio": 0.3, "penaltyApplied": false, "penaltyRatio": 0, "finalCopayRatio": 0.3, "tier": "standard", "grossMonthlyCaregivingCostKRW": 2670000, "patientCopayKRW": 801000, "nhiCoveredKRW": 1869000}, {"patientId": "PT-DEMO-02", "hospitalId": null, "evaluatedAt": "2026-11-12T19:55:23.176Z", "policyLastChecked": "2026-11-12T05:17:04.327Z", "admissionDurationDays": 200, "isNearPovertyTier": false, "baseCopayRatio": 0.3, "penaltyApplied": true, "penaltyRatio": 0.1, "finalCopayRatio": 0.4, "tier": "long_stay_6mo_plus", "grossMonthlyCaregivingCostKRW": 2670000, "patientCopayKRW": 1068000, "nhiCoveredKRW": 1602000}, {"patientId": "PT-DEMO-03", "hospitalId": null, "evaluatedAt": "2026-11-12T19:55:23.176Z", "policyLastChecked": "2026-11-12T05:17:04.327Z", "admissionDurationDays": 400, "isNearPovertyTier": false, "baseCopayRatio": 0.3, "penaltyApplied": true, "penaltyRatio": 0.2, "finalCopayRatio": 0.5, "tier": "long_stay_1yr_plus", "grossMonthlyCaregivingCostKRW": 2670000, "patientCopayKRW": 1335000, "nhiCoveredKRW": 1335000}], "secureEncryptedToken": {"keyId": "eee9dc1853b53d9f", "iv": "107f97284a451f95158b6eb3", "authTag": "457618b19520c7abaed34fdc6d71f424", "data": "7eada4df6d15cf94fad9e948203f08d2923231e5065ff8634d3e6c2cfb9ddb76e581d49371ca54c2e08e43bc65c691fed99d89fbe3bb9ab5a000245eda078a0491c1fba5a269809e322a3e2017f8188cffbc6346cd258bbd2b325b7f29c3a7f64393d5a0d1e3a1263b10b2cbd4913390ae00d4cfff29e2d8d6c6f8184bc4eefa83342dcfe90b6b3007f82278efe843a6a434452c2288e0b028f1709be746a454583836e26455afe78e65379c48b2fa5813feb1be415f251c33ee9f56f155f9677d270054bd752654e5bb30533d3b94c454a79f099a304a5ed0f7394d64f26cd6ebd4813956cd4ef623d13949803e5f22a77d5911a9d8ac386e095b9294128b8fee524ba4bda30d08a06792323e9277078030332cfc51b37e0c5c44f1cb6b200e1f835b912bce64d0677465a854614795e01b6e67e350f5e0e483b18f3febcace547b4b5f01f2ff46f1981844f1a98b9edee98da1f3a56b6268f7cd898d73fca2b6d35b23c0a2f64310ccaa3167eec30a90e563ca68c0f7366757afae00256c464ad7485be11cb86b4f4f7d8a65878e2d169a51a13d2396e27b175e0b6ba8fb763121d5bef2a6f52bea12acb455aa5fd46fe45d3cafd5727cd672f7ad3249242c753289a628060742da854f43d00c6fc6dba60306151784545f2e8cad9648c40e9c1231efaf95fc369efd1b23f9d7b465ddcafac5ddc77bd87b358f58ea248862fd8a3a35820940552de34fd1feec2dd02362be7c88f399e160aca07522d1c9147a2f24960a8f44f680322487d081f40fef6711971dac0c2e37e473488585130467cb6702675d6d57bdeea2731375da1aacd2d846c59c757c121d46bb348dab0b2b8d3027a1ec7b36baa96dbac2b02162683034d1213ce97de9284a842db32015a8b36a160cb4214e74abd418a2dad1be3277d630978aae40eb1fb81f1fc6c4e0137b9cb84d404fe92482cc9f9dec41fe06c39598955dba7e4b312336016f870673e2ae2fa9228d710f4e8c3a23c8fe70b2327efa7866414f7f7f4d3a92279a8a80d726eb3949365582e2755ad9e928763051d93ebb56367f753c715c686be1ca0395ba7035bf56c8dc6399636fee3b3bf0be01cedc4ee5e4888ff029ced824fa15677ac257be8558c6857a317988aea6ba02be1f9eb901c7ffa903dceab5f86677f2af03a676343979a6bff6f174124ec071841488f4058f49b420870a246426fb5b45b8e874b7efad3461be380d12eaf2e301d63569ff2d39e106000319bd2d9697d230bc382e5b05a90530e0134eb6b8f1e75ef274991263c22e61c3f9ab114310e5c8d4d0c815b265f6c9099e525e5ab78a11da5dce36637949aeb6ab28875165710bb290a92fc5e8dc00ad2b8671442ae32db2c707a55a4bc5dfa040f15ed358acfcc80f5af35f5604573840e6cd0dc9b863601317efa269cc60a655034e6cdbfdc606b304d349fb40fb8ece4dfdf0329be656b7ca0e228574fdc0e771b15f21bf823a56f1d7b536e198fe03201a916281780aebbf6e89e13b67876ca342b80a87ae29b2fde1dcf39e720c514e7cd4f4de7f5b17f4b3c692ef4abf135fcfb3bfb4d228f12b7f3275b93d97429185d001f5202fdab75a45fafecca5f14d33102201"}}, "/api/v1/remittance/escrow": {"success": true, "timestamp": "2026-11-12T19:55:23.180Z", "payroll": {"workerId": "WORKER-PARK-01", "grossMonthlyWage": 2500000, "verifiedHoursWorked": 160, "incomeType": "employee", "taxWithholding": {"incomeTax": 35600, "localIncomeTax": 3560}, "taxRegime": {"regime": "earned_income", "basis": "근로소득 간이세액표 (소득세법 시행령 별표 2)", "legalBasis": "소득세법 시행령 별표 2 (대통령령 제36129호, 2026.2.27. 일부개정)", "tableEffectiveFrom": "2026-03-01", "familyCount": 1, "tableValueIncomeTax": 35600, "childCreditApplied": 0, "isEstimate": false, "excluded": ["an individual's 소득·세액공제신고서 (보험료·의료비·교육비·주택자금 및 특별세액공제)", "the 80% / 100% / 120% 원천징수 비율 election (100% is assumed)", "상여 등, which is withheld by a different method"]}, "fourMajorInsurances": {"nationalPension": 118750, "healthInsurance": 89875, "employmentInsurance": 22500, "longTermCare": 11810}, "unavailableComponents": [], "totalDeductions": 282095, "netPayableKRW": 2217905, "remittanceEscrow": {"targetCurrency": "USD", "netPayableUSD": 1642.89, "exchangeRateKRWtoUSD": 1350, "foreignExchangeActCompliant": true, "escrowReleaseStatus": "READY_FOR_VERIFIED_DISBURSEMENT"}}}, "/api/v1/compliance/audit": {"success": true, "timestamp": "2026-11-12T19:55:23.183Z", "jurisdiction": "South Korea (Labor Standards Act & Retirement Benefit Security Act & PIPA)", "auditLedger": {"workerId": "WORKER-PARK-01", "asOfDate": "2026-11-12", "isEligibleForSeverance": true, "cumulativeSeveranceLiability": 10964657.18, "averageWageDerivation": {"basis": "caller_supplied_monthly_average", "dailyAverageWage": 103333.33, "threeMonthWageTotal": null, "threeMonthDays": null, "floorApplied": false, "divisorDays": 365}, "employerLiabilityComponents": [{"key": "baseMonthlyWage", "amountKRW": 3100000}, {"key": "severanceAccrual", "amountKRW": 258333.33333333334}, {"key": "overtimeCompensation", "amountKRW": 270000}, {"key": "nationalPension", "amountKRW": 147250}, {"key": "healthInsurance", "amountKRW": 111445}, {"key": "employmentInsurance", "amountKRW": 27900}, {"key": "longTermCare", "amountKRW": 14644.4}], "overtimeCompensation": 270000, "fourMajorInsurances": {"nationalPension": 147250, "healthInsurance": 111445, "employmentInsurance": 27900, "longTermCare": 14644.4}, "unavailableComponents": [], "insuranceRatesEffectiveFrom": "2026-01-01", "totalEmployerLiability": 3929572.73}, "secureEncryptedStorageToken": {"keyId": "eee9dc1853b53d9f", "iv": "520ccf69f7dcd9ffde8c49d9", "authTag": "c0aa319f5c620797976a37976c71f187", "data": "cf45f373b9d66954b87af02429743b9a0bf170f9f0d006f922b0113deda9b35cd0043285675ebd1059f4e464134f526705d2d0a69f90de03bf1940e491dc59eb1a008c7f7b0a363e2d8709f805a8f3e78365b23ebd45fe3949ce3a2c6d65ec4eda31c9fe65d9c31aa1b08366189a34637399c2850792d9d5877c57467f567769458c4cb02c6f8fb9ae37f6c48a87cf97b3ca17cd13c341b0dd4c3ddaa149db389248e1e64057f078d6ca20f08ffb1c8ae34a57e2971332d352cade531b623b6e2ba96f4215352720cc5f5403ce78554b945417225bdc753261811f31d157bc510e5cd3ac05a5f5e0ddef30cfd700b58db82cce94b560536e3076e4edd995eabdc533cbb91152c82cb5f3f4ead19e1abd2da98f46120ca18a9ceacdbb4354a3506efee18f685a532674feb67b6363ea28a5a823777c127ab7b5c74a67b44ab1b955d7d613ff61e47615fc1f25f899d5152d1e9bbe024e16afecaa6ad72d08e18bce067a51bb4e5ba06c62ac5adfc301bd1fcbd6d5c6ac6b1d5ce94bfa0bb9d793fcdb0d987553b07f173a4e66648bc5c141b4d3571a37b82f12dfe78d1cfd5622151fbf7b834d4417e36dd73c28c0d6416c83b51b0fd282f2b6c8f982d54fde17d8c744b0dba8748a7a5a1545648cca829be7e1029c01be5b8432cc30f894bd1a5245a1dea5f803636844cab61c89706aec89891e952f1d73d99d724a2861180eccd3d37001c5c5a51f99767e99d536281a9433d901a6d409cc5ae01992d7d9f553d2b6464a0ed5ce77a4ab925ac5af7bd8eee0165ddd6380109c22a5635e46af7b240cc290d66167a9b4a371b3eeaae3f238c120aa799a09cd1be358117128cfdc8d50487165e500218760a1b8680bb3b4938bced6eae7a2420219f0693466a5239593cb8881de7a9054dddb090a59dd25d5c5fcffd455e69e8c8cb6162808f1a3edc182cabdd965e257c65497e565dfc601cb72df192acaa1a34b6a4723ae493f1739304b9fa5396ac2ee383bbda369cec3c2ab0fabcc30cec2e4c8a8f4448de3bd2eda14c05167322b2603a1bd4117f00f8f2eb97784b72c4ab5d80b9163fd41d02ce5fc0bf3e81743fc359ef1a587be5c9dcc5f6053f2334378d0e3ff3d7fd03ec3c9929ad398ca1419e40ad4909183c13e6837ce0e73182c9ed7f078c3af25fbb421935f7c62f1d5903d7b104c0a77ecaa5ff30bcae54c769bac462e8fdf5001f0b678424b507f1e58bb9e5b788ebffa5498f69bd73ecaa3bb4ef4c9d8c34345991ea47f237e2449062e28ec21358a944174f3d174798ba4e3644693ee93fffdd0dae49380d77ba285f3f9acf6fba9070a33bc0241d2770fe3c9f6a5a78a8780aba25a53e1fa5399a471a79150d239af266b854c904593b0fd4be51ebad34e86b963546fdb1f17b261a145a4f0b00f447dd41915e25a881d0f7970187b8e"}}, "/api/v1/credential/verify": {"success": true, "timestamp": "2026-11-12T19:55:23.185Z", "verificationResult": {"verified": true, "workerId": "WORKER-PARK-01", "code": "verified", "licenseDetails": {"name": "Park Eun-ji", "licenseNumber": "KR-CARE-2023-88491", "isCertified": true, "expiryDate": "2028-12-31", "issuingAuthority": "Seoul Metropolitan Government"}, "message": "OCR extraction successful. Credential verified against official government registry."}, "secureEncryptedVerificationToken": {"keyId": "eee9dc1853b53d9f", "iv": "354f2d173973ace0033e1faa", "authTag": "de7a68ad9bd724183e76c7c30c92a7cf", "data": "3f5afab88314e67e3599fd6d29dbcafca5579574d5770ab5af0439eb39dbd6aab5989f49d4de34bf459246d29fc584e44bcec0d0045cf1f85274e05b1db5805e2d6c67a68678b7095048399df962c607aadc732f8dbeacaf422c516fcb8206771a19d3548e5d0cbb597569211adcd31fe58492650d2558a84ebede712d9a81b6da7f27812f48e2e8238f726cfd75b061054900b2e622ee8c9e07109778939fd57b9acad1b74376b3eef77fe55eca6534390e7b98b761be2415329737c1805df3834cb5d61f1388eaa47a719fa55692c3d92c2234c77793ff9a3533d0e0b5adb57f66c2214debb217e182bde553238e51fa679af4e6072c0513875bc5db3acd195071dd96d4f57b2bff0ba4f999cf396183283b88957fa52a3ca1fc0fef165a733d2e1f9bb69963193cb038f8f5588661d4671ddd32700941638fc303a1a180f26401b61ea0c77577879451f74d"}}, "/api/v1/matching/dispatch": {"success": true, "timestamp": "2026-11-12T19:55:23.187Z", "dispatchResult": {"requestId": "req-elder-01", "totalCandidatesEvaluated": 2, "bestMatch": {"caregiverId": "WORKER-PARK-01", "name": "WORKER-PARK-01", "finalMatchScore": 127.1, "isEligible": true, "disqualificationReason": null, "estimatedEmployerLiability": 3920123.47, "severanceEligible": true, "distanceKm": 1.8}, "allRankedCandidates": [{"caregiverId": "WORKER-PARK-01", "name": "WORKER-PARK-01", "finalMatchScore": 127.1, "isEligible": true, "disqualificationReason": null, "estimatedEmployerLiability": 3920123.47, "severanceEligible": true, "distanceKm": 1.8}, {"caregiverId": "WORKER-CHOI-02", "name": "WORKER-CHOI-02", "finalMatchScore": 24.1, "isEligible": false, "disqualificationReason": "Caregiver not found.", "estimatedEmployerLiability": 3920123.47, "severanceEligible": true, "distanceKm": 2.8}]}, "secureEncryptedDispatchToken": {"keyId": "eee9dc1853b53d9f", "iv": "bbb2c55725a2e02988fe260f", "authTag": "14e2fdf86182727c4853e5bf6ae30bcc", "data": "7bcfe458b6ce1e08ab7274f48006ab7b7605841572de4540b237aa2aafec8123a6beb2a3ea238a6abb12d21d4538af05bcfeb2cef988f2db5fc6ce3ab7b6432b4898650e316eb8936108ea58b2411462b8f43688a4a78b7ae81cfa66b8a5b8b165256fd7e14906b1ff25d0f02b32e49e8ab9595c644a377917384e269865119f288cb119386ef49c7297c6b8550ed20fadeebf6fd0c1a4c601db1b8c3d021be069bb9625a12fd6bcf326ee02524ea8172460a932a0d325b1c265e0a71b953a4830b682c7b8a10561762cf7147d6478298585ed2033dd826f13cac33c2b1f8633b74bd352a4bf5ee3354fe618c5cf3d26b17300d91cfd7940c297315ed6c81847a74c7275cf1327ef9fc97b7dc526e72429ae3540366a1be2619d4f260ddce61ea61714d600a6ebdd2c8ec96a16b971a1d016916d5b1f09b0fb39685dce6ec9034f50c81ec9c80a8b6115c58edbc302e67a505f00f8d12c9b0b82902fe8009db32af7bb219adb292c7d9cb6c8be3e5a4402a4cc4c2ae720de18b50ef5c768d5bfde4f5929061ed27f460bb6a704fa8dee7f4acdc9c3d21026134714ca30bc887ac0a6bfadfcd9539d4d995156773032ea7d5226748c169bc1f07d179395f6c237032bb14a83bbf029792510b820dfaa28d136ea37fed4d72f079e9081f4e86abd00a1a798d93033c06f9db62aa333b123f86fb6de9fc176a7a7bcdb5cc658e6969aff75519775de32c77118d19037af97f8537de657f7b64bed6ac412e8d8c592e0789010a30ab791db79fb9e3808f0732a5be5ee878589629d0faf4231a0ed88d3d9af02d03cbfe89fb62cac11d9c89a13174ace73697d9ba8c4d073f6a4e569e9f18ed9d52f74559efb5da7fa16520e255f6d105ed54912636b86760ee4edfa3db5c70f3b6d9b429d7dae46f35681c9d631bd438af463118e80b24a723a56d431b2401e0ceaf037c4502a1121838a93b3e34fb76c59b8fbea8ba22933bdb474960e0aa8be2556f5bdb0c408b9489d8424c500afae6085c43f631fb8cfe8278bc83ecf4ea18eb8d2"}}, "/api/v1/risk/scan": {"success": true, "timestamp": "2026-11-12T19:55:23.189Z", "riskReport": {"scannedAt": "2026-11-12T19:55:23.189Z", "totalEvaluated": 2, "skipped": 0, "results": [{"workerId": "WORKER-PARK-01", "riskLevel": "LOW", "daysToVisaExpiry": 780, "monthsEmployed": 43, "cumulativeSeveranceLiability": 11318356.52, "flags": ["SEVERANCE_OBLIGATION_ACTIVE"], "evaluatedAt": "2026-11-12T19:55:23.189Z"}, {"workerId": "WORKER-KIM-02", "riskLevel": "LOW", "daysToVisaExpiry": 184, "monthsEmployed": 35, "cumulativeSeveranceLiability": 8597260.27, "flags": ["SEVERANCE_OBLIGATION_ACTIVE"], "evaluatedAt": "2026-11-12T19:55:23.189Z"}]}, "secureEncryptedRiskToken": {"keyId": "eee9dc1853b53d9f", "iv": "acfbbd4ae269504933232b71", "authTag": "13b6d0013c1c70216da742a588ec6f1e", "data": "8e75f957ff82b5af2a090870fd6f3f33d9d19168056d10e916bdf9bdb643c6c55224c9db928dd02fc326290e4f294f9fff9c7de1936623c3b36239fef61bc93d79a778b3748bc70b770a389381490f2d21194e7cbd7255bc03f5ff21ff0882dd14e865e50871facd3783393de1c67d54578069b4866995b8ab928b99d07d33222c1f95641ec9bf6162d2625a84661c8ecc332b8a6763dd9de3adc9ef7abfe8e58c83ce581dbb422e417002f12bba62f6b39048d8a78ac6c9fb9220b6621c6884b8fb18be442f166cabc703dbd05fd4f34ae14f0d930b3ab1e3057b5fe4463056f9749fa6e27051f8116eb83023da303a500ba03a4980d888a9e5942ac708898b1333eaa16860ed4ef04b342927b6414cfd5c6bc82f82dd150bf4534ec9f84a1d190ba9aed798578a5bc8a82f74e26bd6c53ae39fe2e7a9d501923b389fba2b347c453ffbb14f987aa66811f616508dd890b552c53056d19e0ccb5069c97e8301c5edeb3ba32d714b35e1d10633cc227496240de2016f8f063851084093bb9159987f41555a130f7d0f3df75400c8a40e0b26d19a829f0ee8531ae0e1abfd69efed66f659e2c7a8955c86baae2187f5c4c0c542f9e0367ba8e68060a99ceca75189d51d2dbd409d319ea309fe478a89cccee3d30bcea8efb161675f6cf5f0531b1104089a421362760efaff8ea73cad1bc6f36be7683376ffb0dc8d3088afe5"}}, "/api/v1/visa/verify": {"success": true, "timestamp": "2026-11-12T19:55:23.190Z", "visaCategoryCheck": {"eligible": true, "visaType": "F-2", "nationality": "China", "code": "on_list", "message": "Visa type matches CareBridge's approved caregiver category list -- not a substitute for official immigration verification."}, "secureEncryptedVisaToken": {"keyId": "eee9dc1853b53d9f", "iv": "8bbee7bd88c6e7f5444a3338", "authTag": "6dd5c5afc68c15cdd9f1d4bd62fd89ca", "data": "3bf8a508ba6c58efa0b4cd9ebc2649bbfe2cfe8b5a7b34c09791f59efba814aa0d94891b8853a935ab1641953f30cd5f81eb973bece42f3dc9fde5f1ad8ac6c6f48ae173ae242b67ca299d92628cccefe0d4b5924d1b822623b0184abca91531a0ba2cd77656f43290b588442f9a514a63c959d5c6206881a90bf8703b44b8dd5e7b3266ffb4fa5a85ec443a6435306c55b747740553d07152a54f89629b3fc2d050076d68c087a01f958d58a48e70da86159e1f082b0d5861ddc0c3c2cf5e4d1ab0e8af2fe9dc95b85be1e43a1278aa"}}, "/api/v1/audit/inspect": {"success": true, "timestamp": "2026-11-12T19:55:23.288Z", "inspectionAgency": "Ministry of Employment and Labor (MOEL) Inspector Portal", "inspectionReport": {"totalEntriesScanned": 2859, "violationsDetected": 0, "violations": [], "readableEntries": 2859, "policyViolationsCount": 0, "unexplainedFailures": 0, "tamperSuspectedCount": 0, "documentedQuarantine": {"present": true, "count": 28, "firstTimestamp": "2026-08-25T23:58:12.107Z", "lastTimestamp": "2026-08-26T19:41:33.505Z", "originalLineNumbers": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28], "cause": "These records were encrypted under a key that was replaced on 2026-09-03, before key versioning existed, so they carry no keyId and cannot be opened by any key the keychain holds. AES-256-GCM ciphertext is unrecoverable without its exact original key. This is a dated, bounded loss of history — not tampering. Quarantined rather than deleted so the loss stays on the record and its boundary remains auditable.", "causeKo": "이 기록은 키 버전 관리가 도입되기 전인 2026-09-03에 교체된 키로 암호화되어 keyId가 없으며, 현재 키체인이 보관한 어떤 키로도 열 수 없습니다. AES-256-GCM 암호문은 원래 키 없이는 복구할 수 없습니다. 이는 날짜가 확정된 한정된 이력 손실이며, 변조가 아닙니다. 손실이 기록으로 남고 그 경계가 감사 가능하도록 삭제하지 않고 격리했습니다.", "recoverable": false, "quarantinedAt": "2026-11-08T21:28:51.949Z", "file": "access_audit.orphaned.log", "sha256": "9a34c97ac8fda5ce28d4390914c81a58071be7dd00ec018737513b31fa2edb8d", "hashVerified": true, "integrityProblem": null}, "chainIntegrity": {"present": true, "chainedRecords": 241, "preChainRecords": 2618, "genesisVerified": true, "headMatches": true, "headHash": "c20a72ba45eb487beb5acdeebbb29532ba7adfa5d5b57e48899dffbae40e1886", "breaks": []}, "integrityVerdict": "DOCUMENTED_LOSS_ONLY", "summary": "2859 of 2859 readable · 28 quarantined (documented, hash-verified) · 0 unexplained · chain intact (241 chained, 2618 pinned by genesis)"}, "secureEncryptedInspectionToken": {"keyId": "eee9dc1853b53d9f", "iv": "e568db24681387d4305118d5", "authTag": "203e253c598b0c48c9b1adcf19777400", "data": "ae1584d214d7073a155f074b8b8e0e2ba8bd3c461f3cbbc11be001985d4a361dbe3e53d87be043497962c0dc2027ba15ae8afac0d432366419fcf61e9f9eb5c77359f30d104d90832af0de6cc8bdbfa8e85a2c2dce4078a59860e9303509bc05857d8641d90a5bb15a2bdbc2283a1fe8854e706ebb89e6702caffc8255e82c910b6c39f27b5f687ed59ee03240588ad344ed02b2f2044cb4fe80c0d485f9bb49be1935778075051fb4260141c2de55b1441825855f4e9ca0b20b726fe1d7824808cf8f8d0e2f4a0222af03c4f94ddbac7b7fece802c474325876c58c74c9b255167d4e1edb67adddfcc5cab326ed2b5ce0cba4ffe99057c0b5986ff96c2cc9e0b63921587dc2f398a629aa7dd69c01fff6148a1e34ee74c597809baa0586bf80cee41fbc7476a837e00cc9d7b057a0d6e76061a00bf927dcb10882654f616c86c9f7ca0cf761fff931bb199f6186c4aef8f193a2efccf24915d7468bebca0f19b7a669763f8cea53bff7895d6259de4fd40d62a194a7879620fa5045d19efb0c4570f9b1e2aa586813bf632fd6291b50bfbb3567c152359c63c7a554314fe105769bba0b2fe22ee94f93b4fe71b808407133ffd67f741e19600e2de6ef8ce0496e44ef1813087b69c82b0746053192b0c0cbc87c339641c8041597faba00c18b9ffb740226d4efa2b21531926e33c3aa0e137705667c9920661a85580417243c5fe5d74a4de2a46f3fb5aa9bb7a8facf848de856fc9ab891c3de54e7660fc9d1715100852a0ff25a7a695973ef2973f6377cf81b3e11366b9504a51ec6137fcf6cf7ded284dbc138ebc02a03e687aeaaf0bedd8c9cfe98d764bce23a89f0088b5800f98f844a5de115f7f6efb1288a70f09152556ad14c0066fbfca61e860bb7cf1bc0cba631f1d0ee282916e41461daacd388aacb37a3c58381d663b47790ed390c14da656e115afdaad4f47456b4ab84080d65eed3097ae193b5c189219b0978b95cda1192ae40281ea938135cacb7d1bdf5134ea5889f08c47d6b60b4d615871b93e788f9a228cce7f18f1fedf558357bf45b92eb1f45e2920386e4b3201810169db5b8d45622d0bf507d423bfe2961acf0ff8241d7d485e930239bb3911fe78a18f9866c7b5021052c62f30febbb5d5d8910a1b3fbf2cf610031bcd0f75db1476e7809760c205b9d586b5e2c07aa9a9533bde03ca36f4a4511719cae5662ccf322c35fc375aeeeb3a6c59f60478596be0f10439c0bf01659afd83f89d4bc0b7a7f03a349971b798e1e03de57a90bf625d00016de4bfc1f672e1d0a5d341e92b05b88a3c82b98e05493df677ce6a3c3eb5fc3bd46e791b98a6e58a4a91d89afd2bae067ec0df79823f2329624d3343e079098c8dc7a78fec02a16d70ef774ecc22af16edfeaba9e285f15830b5df1028daf90ed910004625a66be22f190a4783c0f1bf1e35916e6d6a83c960c15ad55a91d7277df0586798595695d82cd1e6f269c75f8df27733d4814e938aef6c5bfc265e1bc22a71b4feca61248b7c9ea1055520126014154837939d988ba9dbec4e2c8d1ff93704e682ebf289a8dd64dc23f0cd5b4e2d4a435c83a05b4b84d76adbec39ae1b4f9cb115bb7cd55bd8471021f05a0e48c45caa068775dc8b14f359d872fee609025fdf920d9a4ccada0b71895f2813cc4d9899ee3198853905cc6e4a62417e3ed499a1409551306a25e613d0ca6efaad7b7df64d5a734502002983809599a3f1578a57034145e025ff562193f8bbce4cdf80a3c3b2be77e565d5bf2d1315309060966c85ad320effa15fec15a2238f347b3d8b13d1df3d4ea98a80e3329644649cc303761618daf2e6df8faa5d81b9a30c6d7770255409965f4021701f2f0ecd7b22bb2e0871106df34e3ffbae4a2a4b05640b69eeb9076e2b6803d29432d718d3c4c3cb7c3517fc6ef2e0b35248351f4c03bf70f0b6fa233e898f179f437d738d682b9d21e39d7ebf40c6ea92184f6c3e4616d973c1272608422bfee3ea06c23d174f56df2f6a7428be1d6e4027f1611582680d37248d57e476d8a940ada9af63910cb636d70eb4c732fe70b698ac9db93d914c75855af904a28ad6f2128b6000d42e55d679e320ab734d9349ebca09a367ad384f7059396f5836bfcc4aad037588f3301a751e7487698bd10598f7cab4eec1000793eefe8444bbf8fd441f35ca900c05c17e07930819f2c07971033981e783f6a039b3558162b7b02bd25c04c5654babcb13449e179908a7ff101250e1095a10d3fd98cbbba1f75db481f23f0776673bd1e9703f95ff0096796910e53307c2db3639c68b07fededd40bbf4f3fc88e99f4ea52d24dbd141aaf76f6aaf4e14a1fd46c991507722b7e75c952f9d7beaf21faa50c15034538be285db8b2d485c7f30def8262b130ee7855b4cac49ff74500dad4981a54b42f1f19d79fd20d385226da2c67cedc9c919d95cd9548234ed101ae04979bc88b9842469e89383dbc36fb2747618a3251b23a84db541edf81ea9d5c101b918988ef6c0e7e1e0a901ff90e63c6e409b38b1dff7f65ded47ce82a9a6badf29963a2ce3a9ad63e399534420847da642dbe63561f2d5dd9b08c90dbc8ef49db6adbf2a0aa638fb29fef52485c124e0b19ef4d9f82d0765b5022ec7ce94fff447fa137dc68125d53b08bda6fb2a128e4687c354231d9d75d758ae4"}}};
+window.__CANNED_AT__ = "2026-11-12";
+window.fetch = function(input, init){
+  var url = (typeof input === "string") ? input : (input && input.url) || "";
+  var path = url.replace(/^https?:\/\/[^/]+/, "").split("?")[0] || "/";
+  var body = window.__CANNED__[path];
+  if (body === undefined) {
+    return Promise.resolve({
+      ok: false, status: 404,
+      text: function(){ return Promise.resolve(JSON.stringify({ error: "not in the recorded set: " + path })); },
+      json: function(){ return Promise.resolve({ error: "not in the recorded set: " + path }); }
+    });
+  }
+  var text = JSON.stringify(body);
+  return Promise.resolve({
+    ok: true, status: 200,
+    text: function(){ return Promise.resolve(text); },
+    json: function(){ return Promise.resolve(body); }
+  });
+};
+/* Mark the page so the banner can state it plainly, in both languages. */
+window.__RECORDED_DEMO__ = true;
+</script>
+<script>
+"use strict";
+/* Served by server.js on the same origin. Falls back for a file:// open. */
+var API = (location.protocol === "http:" || location.protocol === "https:") ? "" : "http://localhost:3000";
+/* Handed to this page by the server that serves it (see requireToken in server.js).
+   The literal below is substituted at serve time. On the offline recorded demo it is
+   left as-is and never used, because no request ever leaves the page. */
+var TOKEN = "recorded-demo-no-requests";
+/* A page opened straight off the filesystem cannot reach the API, for two independent
+   reasons: the browser sends `Origin: null` for a file:// document (so the server's
+   origin allowlist refuses it), and the token above is only ever substituted by the
+   server that serves this file -- a disk copy keeps the literal placeholder. Both mean
+   the request dies at the network layer, where the only thing JavaScript can see is a
+   bare "Failed to fetch". Detect the situation and say what to do instead. */
+/* ...except the recorded shareable demo, which is a file:// page ON PURPOSE: its fetch
+   is replaced by a baked-in lookup, so it reaches no server and needs no token. The
+   builder sets window.__RECORDED_DEMO__ before this script runs. */
+var FROM_DISK = (location.protocol === "file:") && !window.__RECORDED_DEMO__;
+
+/* ---------------- helpers ---------------- */
+function esc(v){
+  return String(v === null || v === undefined ? "" : v)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+/* The engine returns won as floats (e.g. 10557516.13). Payroll is read in
+   whole won, so the display rounds — and the note under the table says so
+   rather than burying it. */
+function won(n){
+  if (typeof n !== "number" || !isFinite(n)) return "—";
+  return "₩" + Math.round(n).toLocaleString("ko-KR");
+}
+function num(n){
+  if (typeof n !== "number" || !isFinite(n)) return "—";
+  return n.toLocaleString("ko-KR");
+}
+function set(id, html){ var e = document.getElementById(id); if (e) e.innerHTML = html; }
+function stateOf(id, cls, text){
+  var e = document.getElementById(id);
+  if (!e) return;
+  e.className = "state " + cls;
+  e.textContent = text;
+}
+function show(id, html){
+  var e = document.getElementById(id);
+  e.innerHTML = html;
+  e.hidden = false;
+}
+function failure(title, detail){
+  return '<div class="notice fail"><strong>' + esc(title) + '</strong>' + esc(detail) + '</div>';
+}
+function loadingHTML(text){ return '<p class="placeholder">' + esc(text) + '</p>'; }
+/* Rates arrive as fractions (0.0475). Rendering one raw is how 0.0475 ends up on a
+   screen next to a percent sign in a document somebody signs. */
+function pct(v){
+  return (typeof v === "number" && isFinite(v)) ? (v * 100).toFixed(2) + " %" : "—";
+}
+/* A positive number, or undefined. Optional numeric fields are omitted entirely when
+   blank, so the engine falls back to the supplied monthly average instead of receiving a
+   zero -- for the day count a zero would be a divide-by-zero guard rather than a fallback. */
+function optNum(id){
+  var el = document.getElementById(id);
+  if (!el) return undefined;
+  var raw = String(el.value == null ? "" : el.value).trim();
+  if (raw === "") return undefined;
+  var n = Number(raw);
+  return (isFinite(n) && n > 0) ? n : undefined;
+}
+function isoDate(v){
+  if (!v) return "—";
+  var d = new Date(v);
+  return isFinite(d.getTime()) ? d.toISOString().slice(0,10) : "—";
+}
+function post(path, payload){
+  /* Refuse locally with the real reason rather than letting the browser produce a bare
+     "Failed to fetch" from a request that was never going to succeed. */
+  if (FROM_DISK) return Promise.reject(new Error(t("diskWarn")));
+  return fetch(API + path, {
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-CareBridge-Token":TOKEN},
+    body:JSON.stringify(payload)
+  }).then(function(res){
+    return res.text().then(function(txt){
+      var json = null;
+      try { json = txt ? JSON.parse(txt) : null; } catch (e) {}
+      if (!res.ok) {
+        var err = new Error((json && json.error) ? json.error : ("HTTP " + res.status));
+        throw err;
+      }
+      if (!json) throw new Error("Empty response from " + path);
+      return json;
+    });
+  });
+}
+function get(path){
+  if (FROM_DISK) return Promise.reject(new Error(t("diskWarn")));
+  return fetch(API + path, {headers:{"X-CareBridge-Token":TOKEN}}).then(function(res){
+    return res.text().then(function(txt){
+      var json = null;
+      try { json = txt ? JSON.parse(txt) : null; } catch (e) {}
+      if (!res.ok) throw new Error((json && json.error) ? json.error : ("HTTP " + res.status));
+      if (!json) throw new Error("Empty response from " + path);
+      return json;
+    });
+  });
+}
+
+/* ---------------- copy ---------------- */
+var L = {
+  ko:{
+    title:"노무 감사 문서철",
+    sub:"요양병원 명세 기준 · 산정 기준일 ",
+    apiOk:"서비스 정상 · 마지막 정책 확인 ",
+    apiStale:"⚠ 정책 감시 중단 — 마지막 확인 {h}시간 전 ({d})",
+    apiNever:"⚠ 정책 확인 기록 없음 — 감시기가 아직 한 번도 실행되지 않았습니다",
+    apiFail:"서비스에 연결할 수 없습니다",
+    lang:"English",
+    s1:"총 사업주 부담금", s2:"퇴직금 지급 대상", s3:"자격증 검증", s4:"감사 로그 무결성",
+    hAudit:"퇴직금 산정", hCred:"자격증 검증", hMatch:"매칭 배차", hVisa:"비자 적격성", hWatch:"정책 감사",
+    lWorker:"근로자 번호", lStart:"입사일", lWage:"월 평균임금 (원)", lHours:"주 소정 근로시간",
+    l3mTotal:"3개월 임금총액 (원)", l3mDays:"그 기간의 총일수", lOrd:"1일 통상임금 (원)",
+    nDeriv:"아래 세 항목은 선택 사항입니다. 3개월 임금총액과 총일수를 입력하면 근로기준법 제2조에 따라 1일 평균임금을 직접 산정하고, 1일 통상임금을 입력하면 같은 조 제2항의 하한을 적용합니다. 비워 두면 위의 월 평균임금을 사용하며, 산정하지 않은 값임을 원장에 표시합니다.",
+    derivTitle:"1일 평균임금 산정 — 근로기준법 제2조",
+    derivMethodDerived:"3개월 임금총액 ÷ 그 기간의 총일수",
+    derivMethodSupplied:"입력된 월 평균임금 ÷ 30",
+    derivNotDerived:"이 값은 엔진이 산정한 것이 아닙니다. 3개월 임금총액과 총일수를 입력하면 법정 방식으로 직접 산정합니다.",
+    derivDaily:"1일 평균임금",
+    derivDays:"재직일수",
+    derivFormula:"적용 산식",
+    derivFormulaValue:"1일 평균임금 × 30일 × (재직일수 ÷ 365)",
+    derivFloor:"통상임금 적용",
+    derivFloorValue:"산정된 평균임금이 통상임금보다 적어 통상임금을 평균임금으로 적용했습니다.",
+    lCworker:"근로자 번호", lLic:"스캔된 자격증 번호",
+    lReq:"요청 ID", lMhours:"필요 주간 근로시간", lMot:"초과 근로시간", lCands:"후보 (쉼표로 구분)",
+    lArc:"외국인등록번호", lVtype:"비자 종류", lNat:"국적",
+    nSample:"표시된 값은 예시입니다. 실제 근로자 정보로 바꾼 뒤 실행하세요.",
+    runAudit:"산정 실행", runCred:"검증 실행", runMatch:"평가 실행", runVisa:"확인 실행", runWatch:"감사 실행",
+    busyAudit:"산정 중…", busyCred:"검증 중…", busyMatch:"평가 중…", busyVisa:"확인 중…", busyWatch:"감사 중…",
+    stTodo:"미실행", stDone:"완료", stFail:"실패", stHold:"확인 필요",
+    failTitle:"실행하지 못했습니다",
+    failNet:"컴플라이언스 서비스에 연결할 수 없습니다. API가 실행 중인지 확인한 뒤 다시 시도하세요.",
+    thItem:"산정 항목", thBasis:"산정 근거", thAmount:"금액",
+    rowSev:"퇴직금 누적 부채", basisSev:"1일 평균임금 × 30일 × 재직연수",
+    rowOt:"초과 근무 수당", basisOt:"통상임금 × 1.5",
+    rowPension:"국민연금 (사업주 부담)", rowHealth:"건강보험 (사업주 부담)", rowEmp:"고용보험 (사업주 부담)",
+    rowLtc:"장기요양보험 (사업주 부담)", rowLtcUnavailable:"요율 미고시 (미정)",
+    rowBase:"기본 급여", basisBase:"평균 월 급여",
+    rowSevAccrual:"퇴직급여 충당 (월)", basisSevAccrual:"평균 월 급여 ÷ 12",
+    sumNote:"위 항목의 합계입니다.",
+    accrualTitle:"참고 — 누적 퇴직금 부채",
+    accrualNote:"재직 기간 전체에 걸쳐 발생한 부채 잔액입니다. 이번 산정의 사업주 부담액에는 포함되지 않습니다.",
+    basisRate:"2026년 요율 기준",
+    rowTotal:"총 사업주 부담금", basisTotal:"이번 산정 기준 부담액",
+    eligibleYes:"퇴직금 지급 대상자입니다.", eligibleNo:"퇴직금 지급 대상자가 아닙니다.",
+    eligibleWhy:"재직 기간이 1년을 초과하여 법정 퇴직급여 발생 요건을 충족합니다.",
+    eligibleWhyNo:"재직 기간이 1년 이하로 법정 퇴직급여 발생 요건에 해당하지 않습니다.",
+    authBase:"근거 · 근로자퇴직급여 보장법, 4대보험 2026년 요율",
+    noteTitle:"금액은 원 단위로 반올림해 표시합니다.",
+    note3of4:"엔진이 반환한 보험 항목은 4개입니다(국민연금·건강보험·고용보험·장기요양보험). 산재보험은 업종별 요율로 전액 사업주 부담이며 임금에서 공제되지 않아 응답에 포함되지 않습니다. 이 화면은 반환된 값만 표시하며 없는 항목을 채우지 않습니다.",
+    policyVer:"산정에 적용된 정책 버전 ", keyId:"키 버전",
+    verified:"공식 자격증이 확인되었습니다.", notVerified:"자격증을 확인하지 못했습니다.",
+    cOK:"등록부에서 자격증이 확인되었습니다.", cNotFound:"등록부에서 근로자 ID를 찾을 수 없습니다.",
+    cMismatch:"자격증 번호가 일치하지 않거나 유효기간이 지났습니다.", cRegDown:"자격증 등록부에 접속할 수 없습니다.",
+    cName:"성명", cLic:"자격증 번호", cAuth:"발급 기관", cExp:"유효 기간", cMsg:"검증 응답", reason:"사유",
+    matchNone:"적격 후보가 없습니다.", matchOne:"적격 후보를 배차했습니다.",
+    mCands:"평가 후보 수", mBest:"후보", mScore:"매칭 점수", mLiab:"예상 고용주 부담금", mDist:"거리",
+    matchExplain:"모든 후보가 부적격으로 판정되면 반환된 사유를 그대로 표시합니다. 이 사유는 후보가 근로자 원장에 등록되어 있지 않다는 뜻일 수 있으며, 그 경우 매칭이 아니라 등록이 먼저 필요합니다.",
+    visaOk:"승인된 비자 종류입니다.", visaNo:"승인 목록에 없는 비자 종류입니다.",
+    vOK:"비자 종류를 확인했습니다. 공식 출입국 판정이 아닙니다.",
+    vNotListed:"승인된 비자 목록에 없습니다. 공식 출입국 판정이 아닙니다.",
+    vMissing:"국적·비자 종류·외국인등록번호를 모두 입력해야 확인할 수 있습니다.",
+    vType:"비자 종류", vNat:"국적",
+    wScanned:"감사 항목 수", wViolations:"조치 필요 항목", wRate:"판독률", wAgency:"감사 기관",
+    wClean:"경고 없음", wWarn:"경고 있음", wNote:"경고로 집계된 항목",
+    wReadable:"판독 가능", wQuarantined:"격리 (문서화됨)", wUnexplained:"미설명 미해독",
+    wSpan:"기간", wRecoverable:"복구 가능", wHashVerified:"해시 검증", wCause:"사유", wYes:"가능", wNo:"불가",
+    wChain:"해시 체인", wChainIntact:"정상", wChainBroken:"끊김", wChainPre:"제네시스 고정",
+    policies:"현재 적용 중인 기준값", pLast:"마지막 정책 확인", rounded:"금액은 원 단위로 반올림해 표시합니다.",
+    polSev:"주당 소정근로시간 기준", polOT:"연장근로 가산율", polPension:"국민연금 (근로자 부담)",
+    polHealth:"건강보험 (근로자 부담)", polEmploy:"고용보험 (근로자 부담)", polWage:"최저임금 (시간급)",
+    wAgencyName:"고용노동부 (MOEL) 감사 포털",
+    diskTitle:"파일에서 직접 열었습니다 — 서버에 연결되지 않습니다",
+    diskWarn:"이 파일을 디스크에서 열면 API에 연결할 수 없습니다. 브라우저가 이 요청을 차단하고, 서버가 페이지에 전달하는 접속 토큰도 이 사본에는 없기 때문입니다. 주소창에 http://localhost:3000 을 입력해 여십시오. 서버가 실행 중이어야 합니다.",
+    services:"서비스", serviceOk:"정상", serviceFail:"연결 실패",
+    s5:"시설 지정 적격성",
+    hElig:"시설 지정 적격성 판정",
+    lEid:"의료기관 번호", lEbeds:"병상 수", lEtotal:"요양보호사 총원", lEdirect:"직접고용 인원",
+    lEaccred:"의료기관 인증", lEregion:"지역 구분", lEdays:"입원 기간 (일)", lEcost:"월 간병비 총액 (원)",
+    oAccred:"인증", oNotAccred:"미인증", oExpired:"인증 만료", oMetro:"수도권", oNonMetro:"지방",
+    nSample0:"표시된 값은 예시입니다. 직접고용 인원을 총원보다 낮추면 판정이 어떻게 바뀌는지 바로 확인할 수 있습니다.",
+    runElig:"적격성 판정 실행", runCopay:"본인부담률 계산",
+    busyElig:"판정 중…", busyCopay:"계산 중…",
+    stQualified:"적격", stConditional:"조건부", stDisqualified:"부적격",
+    thGate:"판정 항목", thRequired:"요구 기준", thActual:"현재", thResult:"판정",
+    gPass:"충족", gFail:"미충족", failedGates:"미충족 항목",
+    allGatesPass:"모든 필수 기준을 충족했습니다.",
+    someGatesFail:"일부 필수 기준을 충족하지 못했습니다.",
+    policyProgram:"정책 진행 상태", policyChecked:"정책 소스 확인", conditionalUntil:"조건부 만료",
+    statusEligible:"적격", statusConditional:"조건부 적격", statusIneligible:"부적격",
+    progPending:"시범사업 확정 대기 (건정심 미결)",
+    copayTier:"본인부담 구간", copayFinal:"본인부담률", copayPatient:"환자 부담액", copayNhi:"공단 부담액",
+    copayBase:"기본 부담률", copayPenalty:"장기입원 가산",
+    copayDays:"입원 기간", lEcostTotal:"월 간병비 총액",
+    tierStandard:"기본", tier6:"장기입원 6개월 이상", tier12:"장기입원 1년 이상",
+    zeroGates:"엔진이 반환한 판정 항목이 없습니다.",
+    /* 01 — 배치 기준 · 통합 격차 보고서 · 일괄 본인부담 */
+    hStaffing:"간호인력 배치 기준 (다가오는 교대제)",
+    lWard:"병동 번호", lWbeds:"병동 병상 수", lWcare:"배치 요양보호사", lWshifts:"1일 교대 수",
+    nSample5:"표시된 값과 교대 기록 1건은 예시입니다. 다가오는 교대제 기준 대비 참고 판정입니다.",
+    runStaffing:"배치 기준 평가", busyStaffing:"평가 중…",
+    stMeets:"기준 충족", stMisses:"기준 미달",
+    reqHeadcount:"병실당 필요 인원", curHeadcount:"현재 배치 인원", findingsTitle:"판정 항목",
+    runGap:"통합 격차 보고서", busyGap:"산출 중…",
+    gapOverall:"종합 판정", gapCount:"격차 항목",
+    thGapCriterion:"항목", thGapCurrent:"현재", thGapFix:"조치 유형",
+    thGapAction:"권고 조치", fixOperational:"운영 조정", fixStructural:"구조 개선", fixUnclassified:"미분류",
+    noGaps:"격차 항목이 없습니다.",
+    gapExplain:"시설 요건과 병동 배치 요건을 하나의 지정 판정으로 합친 보고서입니다. 한국 요양기관 지정은 시설·인력 요건을 분리 심사하지 않습니다.",
+    runBatch:"입원 기간별 일괄 계산", busyBatch:"계산 중…",
+    batchTitle:"입원 기간별 본인부담률", thBatchDays:"입원 기간", thBatchTier:"구간",
+    thBatchRatio:"본인부담률", thBatchPatient:"환자 부담액",
+    batchNote:"표시된 3건은 예시입니다.",
+    /* 04 — 인력 리스크 스캔 */
+    runRisk:"인력 리스크 스캔", busyRisk:"스캔 중…",
+    riskEvaluated:"평가 인원", riskSkipped:"건너뜀",
+    thRiskWorker:"근로자", thRiskLevel:"위험도", thRiskVisa:"비자 만료까지",
+    thRiskMonths:"재직 개월", thRiskSev:"퇴직금 부채", thRiskFlags:"경고 항목",
+    riskLow:"낮음", riskMedium:"보통", riskHigh:"높음",
+    noRisk:"스캔 결과가 없습니다.", riskDaysUnit:"일", riskMonthsUnit:"개월",
+    riskTitle:"인력 리스크", advisory:"참고 신호 (판정 미반영)",
+    /* 판정 항목 이름 — 엔진은 안정된 코드를 주고, 문구는 화면이 소유한다 */
+    crBeds:"최소 병상 수", crDirect:"직접고용 비율", crAccred:"의료기관 인증",
+    crRoom:"병실 병상 구성", crRotation:"1일 교대 수", crHeadcount:"배치 인원",
+    crSolo:"연속 근무 (24시간 단독)", crRn:"간호사 감독 연계", crNoLogs:"교대 기록 미제출",
+    crUnknown:"기타 항목",
+    /* 단위와 열거값 */
+    uBeds:"병상", uShifts:"회", uCaregivers:"명", uHours:"시간",
+    reqAccredited:"인증 필요",
+    acAccredited:"인증", acNotAccredited:"미인증", acExpired:"인증 만료", acUnknown:"미상",
+    engineSource:"엔진 원문 (영문)",
+    gapRequired:"요구", gapCurrent:"현재",
+    /* 07 — 급여 실수령액 · 송금 에스크로 */
+    hPay:"급여 실수령액 · 송금 에스크로",
+    lPworker:"근로자 ID", lPwage:"월 급여 (원)", lPhours:"검증 근로시간",
+    lPdepend:"부양가족 수", lPchild:"8~20세 자녀 수", lPtype:"소득 구분",
+    oPtype1:"근로소득 (근로계약)", oPtype2:"사업소득 (개인사업자)",
+    runPay:"실수령액 계산", busyPay:"계산 중…",
+    payGross:"총 급여", payTax:"소득세", payLocalTax:"지방소득세",
+    payPension:"국민연금", payHealth:"건강보험", payEmploy:"고용보험", payLTC:"장기요양보험",
+    payTotal:"총 공제액", payNet:"실수령액", payFx:"해외송금액",
+    payFxOk:"외환거래 한도 내 — 신고 불필요", payFxNo:"신고 대상 — 미화 5만 달러 초과",
+    payRegimeEmployee:"근로소득 (근로계약)", payRegimeBusiness:"사업소득 (개인사업자)",
+    payEstimateNote:"소득세는 「소득세법 시행령」 별표 2 근로소득 간이세액표의 표준세액(100%)입니다. 근로자가 제출한 소득·세액공제신고서의 내용과 80%·120% 원천징수 비율 선택은 반영되어 있지 않습니다.",
+    payAssumption:"가정", payExcluded:"미포함",
+    payBizNote:"사업소득은 근로소득이 아닙니다. 같은 급여에서 세금이 더 적게 원천징수되지만, 이는 근로계약과 4대보험 가입 없이 분류된 결과이며 이 제품이 드러내려는 위험입니다."
+  },
+  en:{
+    title:"Labor Compliance Audit File",
+    sub:"Nursing-facility basis · as-of date ",
+    apiOk:"Service online · policy last checked ",
+    apiStale:"⚠ Policy watcher stopped — last check {h}h ago ({d})",
+    apiNever:"⚠ No policy check on record — the watcher has never run",
+    apiFail:"Cannot reach the service",
+    lang:"한국어",
+    s1:"Total employer liability", s2:"Severance-eligible", s3:"License verified", s4:"Audit-log integrity",
+    hAudit:"Severance calculation", hCred:"Credential verification", hMatch:"Matching dispatch", hVisa:"Visa eligibility", hWatch:"Policy audit",
+    lWorker:"Worker ID", lStart:"Employment start", lWage:"Average monthly wage (KRW)", lHours:"Contracted weekly hours",
+    l3mTotal:"Three-month wage total (KRW)", l3mDays:"Days in that period", lOrd:"Daily ordinary wage (KRW)",
+    nDeriv:"These three are optional. Given the three-month wage total and its day count, the engine derives the daily average wage under Labor Standards Act art. 2; given a daily ordinary wage, it applies that article's floor. Left blank, the monthly average above is used and the ledger marks it as not derived by the engine.",
+    derivTitle:"Derivation of the daily average wage — Labor Standards Act art. 2",
+    derivMethodDerived:"Three-month wage total ÷ days in that period",
+    derivMethodSupplied:"Supplied monthly average ÷ 30",
+    derivNotDerived:"The engine did not compute this figure. Supply the three-month total and day count and it will be derived the statutory way.",
+    derivDaily:"Daily average wage",
+    derivDays:"Days of continuous service",
+    derivFormula:"Formula applied",
+    derivFormulaValue:"Daily average wage × 30 days × (days served ÷ 365)",
+    derivFloor:"통상임금 floor applied",
+    derivFloorValue:"The computed average fell below ordinary wage, so ordinary wage was used as the average instead.",
+    lCworker:"Worker ID", lLic:"Scanned license number",
+    lReq:"Request ID", lMhours:"Required weekly hours", lMot:"Overtime hours", lCands:"Candidates (comma-separated)",
+    lArc:"Alien registration number", lVtype:"Visa type", lNat:"Nationality",
+    nSample:"Shown values are examples. Replace them with real worker data before running.",
+    runAudit:"Run calculation", runCred:"Run verification", runMatch:"Run evaluation", runVisa:"Run check", runWatch:"Run audit",
+    busyAudit:"Calculating…", busyCred:"Verifying…", busyMatch:"Evaluating…", busyVisa:"Checking…", busyWatch:"Auditing…",
+    stTodo:"Not run", stDone:"Complete", stFail:"Failed", stHold:"Needs review",
+    failTitle:"Could not run",
+    failNet:"Unable to reach the compliance service. Check the API is running, then try again.",
+    thItem:"Item", thBasis:"Basis", thAmount:"Amount",
+    rowSev:"Accrued severance liability", basisSev:"Daily average wage × 30 days × years served",
+    rowOt:"Overtime compensation", basisOt:"Ordinary wage × 1.5",
+    rowPension:"National pension (employer)", rowHealth:"Health insurance (employer)", rowEmp:"Employment insurance (employer)",
+    rowLtc:"Long-term care (employer)", rowLtcUnavailable:"rate not yet published",
+    rowBase:"Base monthly wage", basisBase:"Average monthly wage",
+    rowSevAccrual:"Severance accrual (monthly)", basisSevAccrual:"Average monthly wage ÷ 12",
+    sumNote:"Sum of the rows above.",
+    accrualTitle:"Reference — accumulated severance liability",
+    accrualNote:"A balance accrued across the whole period of service. Not included in this calculation's employer cost.",
+    basisRate:"2026 rates",
+    rowTotal:"Total employer liability", basisTotal:"For this calculation basis",
+    eligibleYes:"Eligible for statutory severance.", eligibleNo:"Not eligible for statutory severance.",
+    eligibleWhy:"Service length exceeds one year, meeting the statutory accrual requirement.",
+    eligibleWhyNo:"Service length is one year or less, so the statutory accrual requirement is not met.",
+    authBase:"Basis · Employee Retirement Benefit Security Act, 2026 insurance rates",
+    noteTitle:"Amounts are rounded to the nearest won for display.",
+    note3of4:"The engine returns four insurance components (national pension, health, employment, long-term care). Industrial-accident insurance is industry-banded and employer-funded, is not deducted from wages, and is therefore absent from the response. This screen shows only what was returned and does not fill in missing items.",
+    policyVer:"Policy version applied ", keyId:"key version",
+    verified:"Official credential verified.", notVerified:"Credential could not be verified.",
+    cOK:"Credential verified against the official registry.", cNotFound:"Worker ID not found in the registry.",
+    cMismatch:"License number mismatch or credential expired.", cRegDown:"Credential registry is unreachable.",
+    cName:"Name", cLic:"License number", cAuth:"Issuing authority", cExp:"Valid until", cMsg:"Verification response", reason:"Reason",
+    matchNone:"No eligible candidate.", matchOne:"Eligible candidate dispatched.",
+    mCands:"Candidates evaluated", mBest:"Candidate", mScore:"Match score", mLiab:"Estimated employer liability", mDist:"Distance",
+    matchExplain:"When every candidate is ranked ineligible, the returned reason is shown verbatim. That reason can mean the candidate is not registered in the caregiver ledger — in which case registration, not matching, is the next step.",
+    visaOk:"Visa type is on the approved list.", visaNo:"Visa type is not on the approved list.",
+    vOK:"Visa type is on CareBridge's list. Not an official immigration determination.",
+    vNotListed:"Not on CareBridge's approved visa list. Not an official immigration determination.",
+    vMissing:"Nationality, visa type and ARC number are all required.",
+    vType:"Visa type", vNat:"Nationality",
+    wScanned:"Entries scanned", wViolations:"Items needing attention", wRate:"Readable ratio", wAgency:"Inspecting agency",
+    wClean:"No warnings", wWarn:"Warnings present", wNote:"Entries counted as warnings",
+    wReadable:"Readable", wQuarantined:"Quarantined (documented)", wUnexplained:"Unexplained unreadable",
+    wSpan:"Date span", wRecoverable:"Recoverable", wHashVerified:"Hash verified", wCause:"Cause", wYes:"yes", wNo:"no",
+    wChain:"Hash chain", wChainIntact:"intact", wChainBroken:"BROKEN", wChainPre:"pinned by genesis",
+    policies:"Regulatory values currently in force", pLast:"Policy last checked", rounded:"Amounts are rounded to the nearest won for display.",
+    polSev:"Statutory weekly-hours threshold", polOT:"Overtime multiplier", polPension:"National pension (employee share)",
+    polHealth:"Health insurance (employee share)", polEmploy:"Employment insurance (employee share)", polWage:"Minimum wage (hourly)",
+    wAgencyName:"Ministry of Employment and Labor (MOEL) Inspector Portal",
+    diskTitle:"Opened from a file — this page cannot reach the server",
+    diskWarn:"A copy opened from disk cannot reach the API. The browser blocks the request, and this file never receives the access token the server hands out. Open http://localhost:3000 instead, with the server running.",
+    services:"Service", serviceOk:"online", serviceFail:"unreachable",
+    s5:"Facility designation",
+    hElig:"Hospital designation eligibility",
+    lEid:"Facility ID", lEbeds:"Bed count", lEtotal:"Total caregivers", lEdirect:"Directly employed",
+    lEaccred:"Medical accreditation", lEregion:"Region", lEdays:"Admission duration (days)", lEcost:"Gross monthly caregiving cost (KRW)",
+    oAccred:"Accredited", oNotAccred:"Not accredited", oExpired:"Accreditation expired",
+    oMetro:"Metro (capital region)", oNonMetro:"Non-metro (provincial)",
+    nSample0:"Shown values are examples. Lower the directly-employed count below the total to see the verdict change.",
+    runElig:"Run eligibility check", runCopay:"Calculate copay ratio",
+    busyElig:"Evaluating…", busyCopay:"Calculating…",
+    stQualified:"Eligible", stConditional:"Conditional", stDisqualified:"Ineligible",
+    thGate:"Gate", thRequired:"Required", thActual:"Current", thResult:"Result",
+    gPass:"Pass", gFail:"Fail", failedGates:"Failing gates",
+    allGatesPass:"All mandatory criteria met.",
+    someGatesFail:"Some mandatory criteria are not met.",
+    policyProgram:"Policy program status", policyChecked:"Policy source checked", conditionalUntil:"Conditional expires",
+    statusEligible:"Eligible", statusConditional:"Conditionally eligible", statusIneligible:"Ineligible",
+    progPending:"Pilot pending confirmation (건정심 has not ruled)",
+    copayTier:"Copay tier", copayFinal:"Copay ratio", copayPatient:"Patient pays", copayNhi:"NHI covers",
+    copayBase:"Base ratio", copayPenalty:"Long-stay addition",
+    copayDays:"Admission duration", lEcostTotal:"Gross monthly caregiving cost",
+    tierStandard:"Standard", tier6:"Long stay 6 months+", tier12:"Long stay 1 year+",
+    zeroGates:"The engine returned no gate results.",
+    /* 01 — staffing standard · consolidated gap report · batch copay */
+    hStaffing:"Staffing-ratio standard (forthcoming shift rotation)",
+    lWard:"Ward ID", lWbeds:"Ward beds", lWcare:"Assigned caregivers", lWshifts:"Shifts per day",
+    nSample5:"Shown values and the single shift record are examples. Evaluated against the forthcoming shift-rotation standard, indicative only.",
+    runStaffing:"Evaluate staffing", busyStaffing:"Evaluating…",
+    stMeets:"Meets standard", stMisses:"Below standard",
+    reqHeadcount:"Required per room", curHeadcount:"Currently assigned", findingsTitle:"Findings",
+    runGap:"Consolidated gap report", busyGap:"Generating…",
+    gapOverall:"Overall status", gapCount:"Gaps",
+    thGapCriterion:"Criterion", thGapCurrent:"Current", thGapFix:"Fixability",
+    thGapAction:"Recommended action", fixOperational:"Operational", fixStructural:"Structural", fixUnclassified:"Unclassified",
+    noGaps:"No gaps returned.",
+    gapExplain:"One designation decision combining facility and ward-staffing criteria, matching how Korean nursing-facility designation bundles them rather than issuing separate approvals.",
+    runBatch:"Batch by admission length", busyBatch:"Calculating…",
+    batchTitle:"Copay ratio by admission length", thBatchDays:"Days", thBatchTier:"Tier",
+    thBatchRatio:"Copay ratio", thBatchPatient:"Patient pays",
+    batchNote:"The three entries shown are examples.",
+    /* 04 — workforce risk scan */
+    runRisk:"Workforce risk scan", busyRisk:"Scanning…",
+    riskEvaluated:"Workers evaluated", riskSkipped:"Skipped",
+    thRiskWorker:"Worker", thRiskLevel:"Risk", thRiskVisa:"Days to visa expiry",
+    thRiskMonths:"Months employed", thRiskSev:"Severance liability", thRiskFlags:"Flags",
+    riskLow:"Low", riskMedium:"Medium", riskHigh:"High",
+    noRisk:"No scan results.", riskDaysUnit:"days", riskMonthsUnit:"months",
+    riskTitle:"Workforce risk", advisory:"Tracked signal (does not affect the verdict)",
+    /* criterion names — the engine emits stable codes; the words belong to the UI */
+    crBeds:"Minimum bed count", crDirect:"Direct-employment ratio", crAccred:"Medical accreditation",
+    crRoom:"Room configuration", crRotation:"Shifts per day", crHeadcount:"Caregiver headcount",
+    crSolo:"Continuous solo shift", crRn:"RN supervision linkage", crNoLogs:"Shift records not provided",
+    crUnknown:"Other criterion",
+    /* units and enum values */
+    uBeds:"beds", uShifts:"shifts", uCaregivers:"caregivers", uHours:"hours",
+    reqAccredited:"Accreditation required",
+    acAccredited:"Accredited", acNotAccredited:"Not accredited", acExpired:"Accreditation expired", acUnknown:"Unknown",
+    engineSource:"Engine output (English)",
+    gapRequired:"required", gapCurrent:"current",
+    /* 07 — net pay and the remittance escrow */
+    hPay:"Net pay and remittance escrow",
+    lPworker:"Worker ID", lPwage:"Monthly wage (KRW)", lPhours:"Verified hours worked",
+    lPdepend:"Dependents", lPchild:"Children aged 8–20", lPtype:"Income type",
+    oPtype1:"Employment income (contract)", oPtype2:"Business income (sole proprietor)",
+    runPay:"Calculate net pay", busyPay:"Calculating…",
+    payGross:"Gross wage", payTax:"Income tax", payLocalTax:"Local income tax",
+    payPension:"National pension", payHealth:"Health insurance", payEmploy:"Employment insurance", payLTC:"Long-term care",
+    payTotal:"Total deductions", payNet:"Net pay", payFx:"Overseas remittance",
+    payFxOk:"Within the Foreign Exchange Act limit — no filing required",
+    payFxNo:"Reportable — exceeds USD 50,000",
+    payRegimeEmployee:"Employment income (contract)", payRegimeBusiness:"Business income (sole proprietor)",
+    payEstimateNote:"Income tax is the standard 100% figure from the 근로소득 간이세액표 (소득세법 시행령 별표 2). The worker's own 소득·세액공제신고서 and the 80%/120% withholding election are not reflected.",
+    payAssumption:"assumption", payExcluded:"not included",
+    payBizNote:"Business income is not employment income. Less tax is withheld on the same wage, but that is the result of classifying the work without an employment contract or the four major insurances — the exposure this product exists to surface."
+  }
+};
+var lang = "ko";
+function t(k){ return (L[lang] && L[lang][k]) || L.ko[k] || k; }
+
+/* ---------------- criterion codes -> localised presentation ----------------
+   The engines emit stable criterion codes, and (since this change) structured
+   values alongside their English prose. The UI renders the Korean from THOSE, so it
+   never restates a threshold the engine owns -- restating one is how a screen starts
+   disagreeing with the thing that actually decided. The engine's own sentence is
+   still shown, but labelled and secondary, so nothing is hidden. */
+var CRIT_KEY = {
+  hospitalMinBeds:"crBeds", directEmploymentRequired:"crDirect",
+  medicalAccreditationRequired:"crAccred",
+  roomConfiguration:"crRoom", shiftRotation:"crRotation",
+  caregiverHeadcount:"crHeadcount", legacySoloShiftPattern:"crSolo",
+  rnSupervisionLinkage:"crRn", shiftLogsNotProvided:"crNoLogs"
+};
+var UNIT_KEY = { beds:"uBeds", shifts:"uShifts", caregivers:"uCaregivers", hours:"uHours" };
+var ACCRED_KEY = { accredited:"acAccredited", not_accredited:"acNotAccredited", expired:"acExpired" };
+
+function critName(code){ return t(CRIT_KEY[code] || "crUnknown"); }
+function valueText(v, unit){
+  if (typeof v !== "number" || !isFinite(v)) return "—";
+  if (unit === "ratio") return (v * 100).toFixed(v === 1 ? 0 : 1) + " %";
+  var u = UNIT_KEY[unit] ? t(UNIT_KEY[unit]) : "";
+  return num(v) + (u ? " " + u : "");
+}
+/* Accepts a gate, a staffing finding, or a gap entry -- they carry the same
+   information under slightly different names. Picks the first actual NUMBER rather
+   than the first non-undefined value: a gap sets `requiredValue: null` explicitly,
+   which would otherwise shadow the structured value it does carry. */
+function firstNumber(){
+  for (var i = 0; i < arguments.length; i++){
+    var v = arguments[i];
+    if (typeof v === "number" && isFinite(v)) return v;
+  }
+  return null;
+}
+function structuredOf(o){
+  var v = o.values || null;
+  return {
+    required: firstNumber(o.requiredValue, o.requiredValueStructured,
+                          v ? v.required : null, v ? v.thresholdHours : null),
+    actual: firstNumber(o.actualValue, o.currentValueStructured,
+                        v ? v.actual : null, v ? v.count : null),
+    unit: o.unit !== undefined && o.unit !== null ? o.unit : (v ? v.unit : null),
+    // A criterion can compare two different quantities (e.g. "20+ hours" against a
+    // count of shifts), so the actual may carry its own unit.
+    actualUnit: v && v.actualUnit ? v.actualUnit : (o.unit !== undefined && o.unit !== null ? o.unit : (v ? v.unit : null)),
+    detail: o.detail || null
+  };
+}
+function requiredText(o){
+  var s = structuredOf(o);
+  if (s.unit === "enum") return t("reqAccredited");
+  if (typeof s.required === "number") return valueText(s.required, s.unit);
+  return (o.required !== undefined && o.required !== null) ? String(o.required) : "—";
+}
+function actualText(o){
+  var s = structuredOf(o);
+  if (s.unit === "enum") return t(ACCRED_KEY[o.actualEnum] || "acUnknown");
+  if (typeof s.actual === "number"){
+    var base = valueText(s.actual, s.actualUnit);
+    if (s.actualUnit === "ratio" && s.detail){
+      base += " (" + num(s.detail.directCaregivers) + "/" + num(s.detail.totalCaregivers) + ")";
+    }
+    return base;
+  }
+  if (o.actual !== undefined && o.actual !== null) return String(o.actual);
+  if (o.currentValue !== undefined && o.currentValue !== null) return String(o.currentValue);
+  return "—";
+}
+/* The engine's own sentence, kept for traceability, clearly marked as source. */
+function engineProse(text){
+  if (!text) return "";
+  return '<details class="detail"><summary>' + esc(t("engineSource")) + '</summary><p>' + esc(String(text)) + '</p></details>';
+}
+
+/* id -> copy key for every static node */
+var STATIC = {
+  "t-title":"title",
+  "s1l":"s1","s2l":"s2","s3l":"s3","s4l":"s4","s5l":"s5",
+  "h-elig":"hElig",
+  "h-audit":"hAudit","h-cred":"hCred","h-match":"hMatch","h-visa":"hVisa","h-watch":"hWatch",
+  "h-pay":"hPay",
+  "l-pworker":"lPworker","l-pwage":"lPwage","l-phours":"lPhours",
+  "l-pdepend":"lPdepend","l-ptype":"lPtype",
+  "o-ptype-1":"oPtype1","o-ptype-2":"oPtype2",
+  "l-worker":"lWorker","l-start":"lStart","l-wage":"lWage","l-hours":"lHours",
+  "l-cworker":"lCworker","l-lic":"lLic",
+  "l-req":"lReq","l-mhours":"lMhours","l-mot":"lMot","l-cands":"lCands",
+  "l-arc":"lArc","l-vtype":"lVtype","l-nat":"lNat",
+  "n-sample":"nSample","n-sample2":"nSample","n-sample4":"nSample",
+  "n-sample0":"nSample0",
+  "l-eid":"lEid","l-ebeds":"lEbeds","l-etotal":"lEtotal","l-edirect":"lEdirect",
+  "l-3mtotal":"l3mTotal","l-3mdays":"l3mDays","l-ord":"lOrd","n-deriv":"nDeriv",
+  "l-eaccred":"lEaccred","l-eregion":"lEregion","l-edays":"lEdays","l-ecost":"lEcost",
+  "o-accred-1":"oAccred","o-accred-2":"oNotAccred","o-accred-3":"oExpired",
+  "o-region-1":"oMetro","o-region-2":"oNonMetro",
+  "h-staffing":"hStaffing",
+  "l-ward":"lWard","l-wbeds":"lWbeds","l-wcare":"lWcare","l-wshifts":"lWshifts",
+  "n-sample5":"nSample5",
+  "run-elig":"runElig","run-copay":"runCopay","run-gap":"runGap","run-batch":"runBatch",
+  "run-staffing":"runStaffing","run-risk":"runRisk",
+  "run-audit":"runAudit","run-cred":"runCred","run-match":"runMatch","run-visa":"runVisa","run-watch":"runWatch",
+  "run-pay":"runPay"
+};
+var STATE_OF = {
+  "st-elig":"stTodo",
+  "st-audit":"stTodo","st-cred":"stTodo","st-match":"stTodo","st-visa":"stTodo","st-watch":"stTodo",
+  "st-pay":"stTodo"
+};
+
+/* ---------------- stored payloads ---------------- */
+var last = { elig:null, copay:null, audit:null, cred:null, match:null, visa:null, watch:null, health:null,
+             gap:null, batch:null, staffing:null, risk:null, pay:null };
+var touched = { elig:false, copay:false, audit:false, cred:false, match:false, visa:false, watch:false,
+                gap:false, batch:false, staffing:false, risk:false, pay:false };
+
+/* ---------------- seal ---------------- */
+function seal(kind, main, sub){
+  var cls = kind === "clean" ? " seal clean" : (kind === "hold" ? " seal hold" : "");
+  return '<div class="seal' + cls + '" role="img" aria-label="' + esc(main) + '">' +
+         esc(main) + "<small>" + esc(sub) + "</small></div>";
+}
+
+/* ---------------- language ---------------- */
+function applyLang(){
+  document.documentElement.lang = lang;
+  for (var id in STATIC){
+    var e = document.getElementById(id);
+    if (e) e.textContent = t(STATIC[id]);
+  }
+  var b = document.getElementById("btn-lang");
+  if (b) b.textContent = t("lang");
+  document.getElementById("t-sub").textContent = t("sub") + new Date().toISOString().slice(0,10);
+  healthLine();
+  for (var k in STATE_OF){
+    if (!touched[k]) stateOf(k, "todo", t("stTodo"));
+  }
+  /* re-render stored results so the toggle updates live output, not just chrome */
+  if (last.elig)  renderElig(last.elig);
+  if (last.copay) renderCopay(last.copay);
+  if (last.gap)   renderGap(last.gap);
+  if (last.batch) renderBatch(last.batch);
+  if (last.staffing) renderStaffing(last.staffing);
+  if (last.risk)  renderRisk(last.risk);
+  if (last.audit) renderAudit(last.audit);
+  if (last.cred)  renderCred(last.cred);
+  if (last.match) renderMatch(last.match);
+  if (last.visa)  renderVisa(last.visa);
+  if (last.watch) renderWatch(last.watch);
+  if (last.pay)   renderPay(last.pay);
+}
+function healthLine(){
+  var e = document.getElementById("t-api");
+  if (!last.health){
+    e.textContent = t("apiFail");
+    e.className = "stale";
+    return;
+  }
+  var v = last.health.autonomousPolicyWatcher || {};
+  /* The status is computed server-side from the OLDEST live track. Rendering it as a calm
+     "service online" line beside a two-month-old date is exactly how this went unnoticed:
+     the date looked like a fact and read as fine. Stale is now a verdict with a colour. */
+  if (v.status === "NEVER_CHECKED"){
+    e.textContent = t("apiNever");
+    e.className = "stale";
+    return;
+  }
+  if (v.status === "STALE"){
+    e.textContent = t("apiStale")
+      .replace("{h}", Math.round(v.ageHours))
+      .replace("{d}", isoDate(v.lastChecked));
+    e.className = "stale";
+    return;
+  }
+  e.textContent = t("apiOk") + isoDate(v.lastChecked);
+  e.className = "";
+}
+
+/* ---------------- 01 severance ---------------- */
+function runAudit(){
+  var btn = document.getElementById("run-audit");
+  btn.disabled = true;
+  show("r-audit", loadingHTML(t("busyAudit")));
+  post("/api/v1/compliance/audit", {
+    workerId: document.getElementById("f-worker").value,
+    employmentStartDate: document.getElementById("f-start").value,
+    averageMonthlyWage: Number(document.getElementById("f-wage").value),
+    weeklyWorkingHours: Number(document.getElementById("f-hours").value),
+    overtimeHoursWorked: 10,
+    baseHourlyRate: 18000,
+    // Pin the as-of date so the ledger is reproducible: the same input on
+    // the same day returns the same figure, and the ledger records it.
+    asOfDate: new Date().toISOString().slice(0, 10),
+    // Optional statutory-average inputs. Omitted when blank so the engine falls back to
+    // the supplied monthly average and reports that it did.
+    threeMonthWageTotal: optNum("f-3mtotal"),
+    threeMonthDays: optNum("f-3mdays"),
+    dailyOrdinaryWage: optNum("f-ord")
+  }).then(function(d){
+    last.audit = d; touched.audit = true; renderAudit(d);
+  }).catch(function(err){
+    touched.audit = true;
+    stateOf("st-audit", "flag", t("stFail"));
+    show("r-audit", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+/* Ledger rows come from the engine's own component list, in the engine's order, so the
+   printed rows always add up to the printed total. The screen previously hand-built six
+   rows that omitted two components the total included (the base wage and the monthly
+   severance accrual) and showed an accrued BALANCE that was never part of the period's
+   cost -- someone adding the column got a number that matched nothing. */
+var LIAB_KEY = { baseMonthlyWage:"rowBase", severanceAccrual:"rowSevAccrual",
+  overtimeCompensation:"rowOt", nationalPension:"rowPension", healthInsurance:"rowHealth",
+  employmentInsurance:"rowEmp", longTermCare:"rowLtc" };
+var LIAB_BASIS = { baseMonthlyWage:"basisBase", severanceAccrual:"basisSevAccrual",
+  overtimeCompensation:"basisOt" };
+function liabRows(led, ins){
+  var comps = led.employerLiabilityComponents;
+  if (!Array.isArray(comps) || !comps.length) return "";   /* engine sent no breakdown */
+  return comps.map(function(c){
+    /* 장기요양: a figure when the rate for this date is published, an explicit "not
+       published" row when it is not. Never a silent omission -- omitting it is what
+       understated withholding before it was modelled at all. */
+    var amount = (c.key === "longTermCare" && typeof ins.longTermCare !== "number")
+      ? esc(t("rowLtcUnavailable"))
+      : esc(won(c.amountKRW));
+    return '<tr><th scope="row">' + esc(t(LIAB_KEY[c.key] || "rowTotal")) + '</th>' +
+      '<td class="basis">' + esc(t(LIAB_BASIS[c.key] || "basisRate")) + '</td>' +
+      '<td class="amount">' + amount + '</td></tr>';
+  }).join("");
+}
+/* How 1일 평균임금 was arrived at, and under which rule.
+   The pitch is that this software encodes Korean labour law rather than approximating it,
+   so the page has to show the statutory derivation and be checkable by hand. It also has to
+   admit when the figure was NOT derived by the engine: a monthly average typed in by the
+   caller is not a figure the engine can vouch for, and presenting it as though it were
+   would be exactly the kind of quiet overstatement this whole pass exists to remove. */
+function derivationBlock(led){
+  var d = led.averageWageDerivation;
+  if (!d || typeof d.dailyAverageWage !== "number") return "";
+  var derived = d.basis === "derived_three_month_average";
+  var html = '<h4 class="sub-h4">' + esc(t("derivTitle")) + '</h4>' +
+    '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("derivDaily")) + '</th>' +
+        '<td class="basis">' + esc(derived ? t("derivMethodDerived") : t("derivMethodSupplied")) + '</td>' +
+        '<td class="amount">' + esc(won(d.dailyAverageWage)) + '</td></tr>' +
+      (derived && typeof d.threeMonthWageTotal === "number" && typeof d.threeMonthDays === "number"
+        ? '<tr><th scope="row">' + esc(t("l3mTotal")) + '</th>' +
+            '<td class="basis">' + esc(num(d.threeMonthDays)) + ' ' + esc(t("derivDays")) + '</td>' +
+            '<td class="amount">' + esc(won(d.threeMonthWageTotal)) + '</td></tr>'
+        : "") +
+      (typeof d.daysWorked === "number"
+        ? '<tr><th scope="row">' + esc(t("derivDays")) + '</th>' +
+            '<td class="basis">' + esc(t("derivFormula")) + '</td>' +
+            '<td class="amount">' + esc(num(d.daysWorked)) + '</td></tr>'
+        : "") +
+      '<tr><th scope="row">' + esc(t("derivFormula")) + '</th>' +
+        '<td class="basis">' + esc(t("derivFormulaValue")) + '</td>' +
+        '<td class="amount">' + esc(String(d.divisorDays || 365)) + '</td></tr>' +
+      (d.floorApplied
+        ? '<tr class="total"><th scope="row">' + esc(t("derivFloor")) + '</th>' +
+            '<td class="basis" colspan="2">' + esc(t("derivFloorValue")) + '</td></tr>'
+        : "") +
+    '</tbody></table>' +
+    (derived ? "" : '<p class="fineprint">' + esc(t("derivNotDerived")) + '</p>');
+  return html;
+}
+/* An accrued balance shown apart from the summed table, under its own heading, and
+   labelled as excluded. It is a liability accumulated over the whole period of service,
+   not this calculation's employer cost -- folding it in above the total would make the
+   column stop adding up again. */
+function accrualBlock(led){
+  if (typeof led.cumulativeSeveranceLiability !== "number") return "";
+  return '<h4 class="sub-h4">' + esc(t("accrualTitle")) + '</h4>' +
+    '<table class="ledger"><tbody><tr><th scope="row">' + esc(t("rowSev")) + '</th>' +
+      '<td class="basis">' + esc(t("basisSev")) + '</td>' +
+      '<td class="amount">' + esc(won(led.cumulativeSeveranceLiability)) + '</td></tr>' +
+    '</tbody></table>' +
+    '<p class="fineprint">' + esc(t("accrualNote")) + '</p>';
+}
+function renderAudit(d){
+  var led = d.auditLedger || {};
+  var ins = led.fourMajorInsurances || {};
+  var eligible = !!led.isEligibleForSeverance;
+  var idx = d.secureEncryptedStorageToken || {};
+
+  /* What the total prints. A ledger's printed rows must add up to its printed total.
+     The engine reports two decimals (its tested precision) while the won has no subunit,
+     so rows print as whole won and the printed total is the sum of those same printed
+     values. Taken straight from the engine's precise total, the column read 3,929,572
+     against a printed total of 3,929,573 -- a won short of itself, which is the first
+     thing anyone with a calculator checks. Only the FIGURES are reconciled here; which
+     components belong in the total is still the engine's list, not this renderer's
+     opinion. The same value feeds the summary strip, so the two cannot disagree. */
+  var comps = Array.isArray(led.employerLiabilityComponents) ? led.employerLiabilityComponents : null;
+  var printedTotal = comps
+    ? comps.reduce(function(s, c){ return s + Math.round(c.amountKRW); }, 0)
+    : led.totalEmployerLiability;
+
+  set("s1v", won(printedTotal));
+  set("s2v", eligible ? (lang === "ko" ? "해당" : "Yes") : (lang === "ko" ? "미해당" : "No"));
+  stateOf("st-audit", "done", t("stDone"));
+
+  var html =
+    '<div class="verdict">' +
+      seal(eligible ? "clean" : "hold",
+           eligible ? (lang === "ko" ? "적격" : "ELIGIBLE") : (lang === "ko" ? "미해당" : "NOT DUE"),
+           eligible ? (lang === "ko" ? "지급대상" : "SEVERANCE") : (lang === "ko" ? "해당없음" : "NO DUTY")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(eligible ? t("eligibleYes") : t("eligibleNo")) + '</strong></p>' +
+        '<p class="authority">' + esc(eligible ? t("eligibleWhy") : t("eligibleWhyNo")) + '</p>' +
+        '<p class="authority">' + esc(t("authBase")) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><thead><tr>' +
+      '<th scope="col">' + esc(t("thItem")) + '</th>' +
+      '<th scope="col">' + esc(t("thBasis")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thAmount")) + '</th>' +
+    '</tr></thead><tbody>' +
+      liabRows(led, ins) +
+      '<tr class="total"><th scope="row">' + esc(t("rowTotal")) + '</th>' +
+        '<td class="basis">' + esc(t("basisTotal")) + '</td>' +
+        '<td class="amount">' + esc(won(printedTotal)) + '</td></tr>' +
+    '</tbody></table>' +
+    '<p class="fineprint">' + esc(t("sumNote")) + '</p>' +
+    derivationBlock(led) +
+    accrualBlock(led) +
+    '<div class="notice"><strong>' + esc(t("rounded")) + '</strong>' + esc(t("note3of4")) + '</div>' +
+    '<details class="detail"><summary>' + esc(t("policies")) + '</summary><ul>' +
+      '<li>' + esc(t("policyVer")) + esc(isoDate(d.policyVersionChecked)) + '</li>' +
+      '<li>' + esc(t("keyId")) + ' <code>' + esc(idx.keyId || "—") + '</code></li>' +
+      '<li>' + esc(t("basisRate")) + ' — ' + esc(won((ins.nationalPension || 0) + (ins.healthInsurance || 0) + (ins.employmentInsurance || 0) + (ins.longTermCare || 0))) + '</li>' +
+    '</ul></details>';
+
+  show("r-audit", html);
+}
+
+/* ---------------- 02 credential ---------------- */
+function runCred(){
+  var btn = document.getElementById("run-cred");
+  btn.disabled = true;
+  show("r-cred", loadingHTML(t("busyCred")));
+  post("/api/v1/credential/verify", {
+    workerId: document.getElementById("c-worker").value,
+    scannedLicenseNumber: document.getElementById("c-lic").value
+  }).then(function(d){
+    last.cred = d; touched.cred = true; renderCred(d);
+  }).catch(function(err){
+    touched.cred = true;
+    stateOf("st-cred", "flag", t("stFail"));
+    show("r-cred", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderCred(d){
+  var v = d.verificationResult || {};
+  var det = v.licenseDetails || {};
+  var ok = !!v.verified;
+  var tok = d.secureEncryptedVerificationToken || {};
+
+  set("s3v", ok ? (lang === "ko" ? "확인" : "Verified") : (lang === "ko" ? "미확인" : "Unverified"));
+  stateOf("st-cred", ok ? "done" : "flag", ok ? t("stDone") : t("stFail"));
+
+  show("r-cred",
+    '<div class="verdict">' +
+      seal(ok ? "clean" : "",
+           ok ? (lang === "ko" ? "확인" : "VERIFIED") : (lang === "ko" ? "미확인" : "UNVERIFIED"),
+           ok ? (lang === "ko" ? "자격증" : "LICENSE") : (lang === "ko" ? "실패" : "FAILED")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(ok ? t("verified") : t("notVerified")) + '</strong></p>' +
+        /* Render from the engine's outcome code, not its English sentence. The English
+           is still shown below under the verification-response disclosure. */
+        '<p class="authority">' + esc(v.code ? t(CRED_KEY[v.code] || "reason") : (v.message || v.reason || "—")) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("cName")) + '</th><td class="amount">' + esc(det.name || "—") + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("cLic")) + '</th><td class="amount">' + esc(det.licenseNumber || "—") + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("cAuth")) + '</th><td class="amount">' + esc(det.issuingAuthority || "—") + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("cExp")) + '</th><td class="amount">' + esc(det.expiryDate || "—") + '</td></tr>' +
+    '</tbody></table>' +
+    '<details class="detail"><summary>' + esc(t("cMsg")) + '</summary><ul>' +
+      '<li>' + esc(t("keyId")) + ' <code>' + esc(tok.keyId || "—") + '</code></li>' +
+      '<li>' + esc(v.message || "—") + '</li>' +
+    '</ul></details>'
+  );
+}
+
+/* ---------------- 03 matching ---------------- */
+function runMatch(){
+  var btn = document.getElementById("run-match");
+  btn.disabled = true;
+  show("r-match", loadingHTML(t("busyMatch")));
+  var ids = document.getElementById("m-cands").value.split(",")
+    .map(function(s){ return s.trim(); }).filter(Boolean);
+  post("/api/v1/matching/dispatch", {
+    requestId: document.getElementById("m-req").value,
+    requiredWeeklyHours: Number(document.getElementById("m-hours").value),
+    overtimeHours: Number(document.getElementById("m-ot").value),
+    strictNoSeverance: false,
+    candidates: ids.map(function(id, i){
+      return {
+        id: id, name: id, isCertified: true,
+        expectedMonthlyWage: 3200000, employmentStartDate: "2023-05-01",
+        baseHourlyRate: 19000, distanceKm: 1.8 + i, rating: 4.5, yearsOfExperience: 5
+      };
+    })
+  }).then(function(d){
+    last.match = d; touched.match = true; renderMatch(d);
+  }).catch(function(err){
+    touched.match = true;
+    stateOf("st-match", "flag", t("stFail"));
+    show("r-match", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderMatch(d){
+  var r = d.dispatchResult || {};
+  var best = r.bestMatch;
+  var all = r.allRankedCandidates || [];
+  var ok = !!best;
+  var reason = all.length ? all[0].disqualificationReason : null;
+
+  stateOf("st-match", ok ? "done" : "hold", ok ? t("stDone") : t("stHold"));
+
+  var html =
+    '<div class="verdict">' +
+      seal(ok ? "clean" : "hold",
+           ok ? (lang === "ko" ? "배차" : "MATCHED") : (lang === "ko" ? "없음" : "NONE"),
+           ok ? (lang === "ko" ? "적격" : "ELIGIBLE") : (lang === "ko" ? "부적격" : "INELIGIBLE")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(ok ? t("matchOne") : t("matchNone")) + '</strong></p>' +
+        '<p class="authority">' + esc(t("mCands")) + " — " +
+          esc(String(r.totalCandidatesEvaluated != null ? r.totalCandidatesEvaluated : all.length)) + '</p>' +
+      '</div>' +
+    '</div>';
+
+  if (ok){
+    html += '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("mBest")) + '</th><td class="amount">' + esc(best.name || "—") + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("mScore")) + '</th><td class="amount">' + esc(String(best.finalMatchScore != null ? best.finalMatchScore : "—")) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("mLiab")) + '</th><td class="amount">' + esc(won(best.estimatedEmployerLiability)) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("mDist")) + '</th><td class="amount">' + esc(best.distanceKm != null ? best.distanceKm + " km" : "—") + '</td></tr>' +
+    '</tbody></table>';
+  } else {
+    html += '<div class="notice"><strong>' + esc(t("matchNone")) + " · " + esc(t("reason")) + '</strong>' +
+            esc(reason || "—") +
+            '<div style="margin-top:.8rem">' + esc(t("matchExplain")) + '</div></div>';
+    if (all.length){
+      html += '<table class="ledger"><thead><tr>' +
+        '<th scope="col">' + esc(t("mBest")) + '</th>' +
+        '<th scope="col" class="amount">' + esc(t("mScore")) + '</th>' +
+        '<th scope="col" class="amount">' + esc(t("mLiab")) + '</th>' +
+        '</tr></thead><tbody>';
+      all.forEach(function(c){
+        html += '<tr><th scope="row">' + esc(c.name || c.caregiverId || "—") + '</th>' +
+                '<td class="amount">' + esc(String(c.finalMatchScore != null ? c.finalMatchScore : "—")) + '</td>' +
+                '<td class="amount">' + esc(won(c.estimatedEmployerLiability)) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+  }
+  show("r-match", html);
+}
+
+/* ---------------- 04 visa ---------------- */
+function runVisa(){
+  var btn = document.getElementById("run-visa");
+  btn.disabled = true;
+  show("r-visa", loadingHTML(t("busyVisa")));
+  post("/api/v1/visa/verify", {
+    alienRegistrationNumber: document.getElementById("v-arc").value,
+    visaType: document.getElementById("v-type").value,
+    nationality: document.getElementById("v-nat").value,
+    employmentStatus: "Active"
+  }).then(function(d){
+    last.visa = d; touched.visa = true; renderVisa(d);
+  }).catch(function(err){
+    touched.visa = true;
+    stateOf("st-visa", "flag", t("stFail"));
+    show("r-visa", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderVisa(d){
+  var v = d.visaCategoryCheck || {};
+  var ok = !!v.eligible;
+  stateOf("st-visa", ok ? "done" : "hold", ok ? t("stDone") : t("stHold"));
+  show("r-visa",
+    '<div class="verdict">' +
+      seal(ok ? "clean" : "hold",
+           ok ? (lang === "ko" ? "승인" : "ON LIST") : (lang === "ko" ? "미승인" : "NOT LISTED"),
+           ok ? (lang === "ko" ? "비자" : "VISA") : (lang === "ko" ? "확인" : "REVIEW")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(ok ? t("visaOk") : t("visaNo")) + '</strong></p>' +
+        '<p class="authority">' + esc(v.code ? t(VISA_KEY[v.code] || "reason") : (v.message || v.reason || "—")) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("vType")) + '</th><td class="amount">' + esc(v.visaType || "—") + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("vNat")) + '</th><td class="amount">' + esc(v.nationality || "—") + '</td></tr>' +
+    '</tbody></table>' +
+    '<details class="detail"><summary>' + esc(t("engineSource")) + '</summary><ul>' +
+      '<li>' + esc(v.message || v.reason || "—") + '</li>' +
+    '</ul></details>'
+  );
+}
+
+/* ---------------- 05 policy audit ---------------- */
+function runWatch(){
+  var btn = document.getElementById("run-watch");
+  btn.disabled = true;
+  show("r-watch", loadingHTML(t("busyWatch")));
+  get("/api/v1/audit/inspect").then(function(d){
+    last.watch = d; touched.watch = true; renderWatch(d);
+  }).catch(function(err){
+    touched.watch = true;
+    stateOf("st-watch", "flag", t("stFail"));
+    show("r-watch", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderWatch(d){
+  var rep = d.inspectionReport || {};
+  var scanned = (typeof rep.totalEntriesScanned === "number") ? rep.totalEntriesScanned : null;
+  var readable = (typeof rep.readableEntries === "number") ? rep.readableEntries : null;
+  var viol = (typeof rep.violationsDetected === "number") ? rep.violationsDetected : null;
+  var q = rep.documentedQuarantine || {};
+  var qCount = (typeof q.count === "number") ? q.count : 0;
+  var unexplained = (typeof rep.unexplainedFailures === "number") ? rep.unexplainedFailures : null;
+  var tamper = (typeof rep.tamperSuspectedCount === "number") ? rep.tamperSuspectedCount : 0;
+  var ci = rep.chainIntegrity || {};
+  var chainPresent = ci.present === true;
+  var chainBreakCount = (ci.breaks || []).length;
+  var chainOk = chainPresent && chainBreakCount === 0;
+
+  var rate = (scanned && readable !== null) ? ((readable / scanned) * 100).toFixed(1) + " %" : "—";
+  var clean = viol === 0;
+
+  set("s4v", rate);
+  stateOf("st-watch", clean ? "done" : "flag", clean ? t("wClean") : t("wWarn"));
+
+  /* The verdict reports the INTEGRITY axis. A documented, hash-verified loss is stated in the
+     table below rather than being allowed to colour the verdict — and it is never omitted,
+     because a panel that hides its own known loss is worth less than one that shows it. */
+  var html =
+    '<div class="verdict">' +
+      seal(clean ? "clean" : "",
+           clean ? (lang === "ko" ? "정상" : "CLEAN") : (lang === "ko" ? "경고" : "WARNINGS"),
+           clean ? (lang === "ko" ? "무결성" : "INTEGRITY") : (lang === "ko" ? "점검" : "REVIEW")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(t("wAgencyName")) + '</strong></p>' +
+        '<p class="authority">' + esc(t("wRate")) + " — " + esc(rate) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("wScanned")) + '</th><td class="amount">' + esc(num(scanned)) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("wReadable")) + '</th><td class="amount">' + esc(num(readable)) + '</td></tr>' +
+      (chainPresent ? '<tr><th scope="row">' + esc(t("wChain")) + '</th><td class="amount">' + esc(chainOk ? (t("wChainIntact") + " (" + num(ci.chainedRecords) + ")") : (t("wChainBroken") + " (" + num(chainBreakCount) + ")")) + '</td></tr>' : '') +
+      (qCount ? '<tr><th scope="row">' + esc(t("wQuarantined")) + '</th><td class="amount">' + esc(num(qCount)) + '</td></tr>' : '') +
+      '<tr><th scope="row">' + esc(t("wUnexplained")) + '</th><td class="amount">' + esc(num(unexplained)) + '</td></tr>' +
+      (tamper ? '<tr><th scope="row">' + esc(lang === "ko" ? "변조 의심" : "Tamper-suspected") + '</th><td class="amount">' + esc(num(tamper)) + '</td></tr>' : '') +
+      '<tr><th scope="row">' + esc(t("wViolations")) + '</th><td class="amount">' + esc(num(viol)) + '</td></tr>' +
+      '<tr class="total"><th scope="row">' + esc(t("wRate")) + '</th><td class="amount">' + esc(rate) + '</td></tr>' +
+    '</tbody></table>';
+
+  /* The documented loss, stated in full: count, span, recoverability and hash verification,
+     rendered on every scan. Classified is not the same as hidden. */
+  if (qCount){
+    html += '<details class="detail"><summary>' + esc(t("wQuarantined")) + " (" + esc(num(qCount)) + ")</summary>" +
+      '<ul>' +
+        '<li>' + esc(t("wSpan")) + " — " + esc(String(q.firstTimestamp || "").slice(0, 10)) + " … " + esc(String(q.lastTimestamp || "").slice(0, 10)) + '</li>' +
+        '<li>' + esc(t("wRecoverable")) + " — " + esc(q.recoverable ? t("wYes") : t("wNo")) + '</li>' +
+        '<li>' + esc(t("wHashVerified")) + " — " + esc(q.hashVerified ? "✓" : "✗") + '</li>' +
+      '</ul>' +
+      '<p class="authority">' + esc(t("wCause")) + " — " + esc((lang === "ko" && q.causeKo) ? q.causeKo : (q.cause || "")) + '</p>' +
+      '</details>';
+  }
+
+  /* Chain breaks, named position by position. A break means records were removed — the one
+     thing per-record authentication could never see. */
+  if (chainBreakCount){
+    html += '<details class="detail" open><summary>' + esc(t("wChain")) + " — " + esc(t("wChainBroken")) + " (" + esc(num(chainBreakCount)) + ")</summary><ul>";
+    (ci.breaks || []).forEach(function(b){
+      html += "<li>" + esc(String(b.position)) + " — " + esc(b.detail || b.reason) + "</li>";
+    });
+    html += '</ul></details>';
+  }
+
+  var counts = {};
+  (rep.violations || []).forEach(function(v){
+    var m = v.error || "—";
+    counts[m] = (counts[m] || 0) + 1;
+  });
+  var keys = Object.keys(counts);
+  if (keys.length){
+    html += '<details class="detail"><summary>' + esc(t("wNote")) + " (" + keys.length + ")</summary><ul>";
+    keys.forEach(function(k){ html += "<li>" + esc(k) + " — " + esc(String(counts[k])) + "</li>"; });
+    html += '</ul></details>';
+  }
+
+  var h = last.health && last.health.autonomousPolicyWatcher;
+  if (h && h.currentRegulations){
+    var r = h.currentRegulations;
+    // These moved out of currentRegulations into effective-dated schedules, so the old
+    // field names read `undefined` -- this card was rendering the literal string
+    // "national pension rate — undefined". Read them from where they now live.
+    var mw = h.minimumWage || {};
+    var es = (h.insuranceRates && h.insuranceRates.employeeShares) || {};
+    html += '<details class="detail"><summary>' + esc(t("policies")) + '</summary><ul>' +
+      '<li>' + esc(t("pLast")) + " " + esc(isoDate(h.lastChecked)) + '</li>' +
+      '<li>' + esc(t("polSev")) + ' — ' + esc(String(r.severanceThresholdWeeklyHours)) + '</li>' +
+      '<li>' + esc(t("polOT")) + ' — ' + esc(String(r.overtimeMultiplier)) + '</li>' +
+      '<li>' + esc(t("polPension")) + ' — ' + esc(pct(es.nationalPension)) + '</li>' +
+      '<li>' + esc(t("polHealth")) + ' — ' + esc(pct(es.healthInsurance)) + '</li>' +
+      '<li>' + esc(t("polEmploy")) + ' — ' + esc(pct(es.employmentInsurance)) + '</li>' +
+      '<li>' + esc(t("polWage")) + ' — ' + esc(won(mw.hourly)) + (mw.gosi ? ' · ' + esc(mw.gosi) : '') + '</li>' +
+    '</ul></details>';
+  }
+  show("r-watch", html);
+}
+
+/* ---------------- 01 facility designation ----------------
+   Facility-level, not per-worker. hospital/eligibility returns the MOHW
+   designation gates with required/actual/pass plus a verbatim reason for
+   each failure; patient/copay returns the long-stay copay curve, which is
+   one of those designation criteria. Both are designation questions, so
+   they live on one sheet.
+   Field names match the engine's contracted input exactly (verified
+   against test_hospital_eligibility.js and test_long_stay_penalty.js):
+   it reads totalCaregivers / directEmploymentCaregivers counts -- NOT a
+   directEmploymentRatio -- and an unrecognised field is silently ignored. */
+var STATUS_KEY = { eligible:"statusEligible", conditional:"statusConditional", ineligible:"statusIneligible" };
+var TIER_KEY = { standard:"tierStandard", long_stay_6mo_plus:"tier6", long_stay_1yr_plus:"tier12" };
+/* The engines name their outcome; the UI owns the wording. Same split as the
+   criterion labels above -- so the sentence a director reads cannot drift away from
+   the branch that actually produced the verdict. */
+var CRED_KEY = { verified:"cOK", worker_not_found:"cNotFound",
+                 license_mismatch_or_expired:"cMismatch", registry_unavailable:"cRegDown" };
+var VISA_KEY = { on_list:"vOK", not_on_list:"vNotListed", missing_fields:"vMissing" };
+
+function runEligibility(){
+  var btn = document.getElementById("run-elig");
+  btn.disabled = true;
+  show("r-elig", loadingHTML(t("busyElig")));
+  post("/api/v1/hospital/eligibility", {
+    hospitalId: document.getElementById("e-id").value,
+    hospitalName: document.getElementById("e-id").value,
+    bedCount: Number(document.getElementById("e-beds").value),
+    totalCaregivers: Number(document.getElementById("e-total").value),
+    directEmploymentCaregivers: Number(document.getElementById("e-direct").value),
+    medicalAccreditationStatus: document.getElementById("e-accred").value,
+    region: document.getElementById("e-region").value
+  }).then(function(d){
+    last.elig = d; touched.elig = true; renderElig(d);
+  }).catch(function(err){
+    touched.elig = true;
+    stateOf("st-elig", "flag", t("stFail"));
+    show("r-elig", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderElig(d){
+  var r = d.eligibilityResult || {};
+  var gates = r.hardGates || [];
+  var failed = gates.filter(function(g){ return !g.pass; });
+  var ok = r.status === "eligible";
+  var cond = r.status === "conditional";
+  var key = STATUS_KEY[r.status] || "statusIneligible";
+
+  set("s5v", t(key));
+  stateOf("st-elig", ok ? "done" : (cond ? "hold" : "flag"), t(key));
+
+  var html = '<div class="verdict">' +
+      seal(ok ? "clean" : (cond ? "hold" : ""),
+           t(key),
+           ok ? (lang === "ko" ? "지정가능" : "DESIGNATABLE")
+              : (cond ? (lang === "ko" ? "조건부" : "CONDITIONAL") : (lang === "ko" ? "미달" : "GAP"))) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(ok ? t("allGatesPass") : t("someGatesFail")) + '</strong></p>' +
+        '<p class="authority">' + esc(t("policyProgram")) + ' — ' + esc(t("progPending")) + '</p>' +
+        '<p class="authority">' + esc(t("policyChecked")) + ' ' + esc(isoDate(r.policySourceLastChecked)) + '</p>' +
+      '</div>' +
+    '</div>';
+
+  if (gates.length){
+    html += '<table class="ledger"><thead><tr>' +
+      '<th scope="col">' + esc(t("thGate")) + '</th>' +
+      '<th scope="col">' + esc(t("thRequired")) + '</th>' +
+      '<th scope="col">' + esc(t("thActual")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thResult")) + '</th>' +
+      '</tr></thead><tbody>';
+    gates.forEach(function(g){
+      html += '<tr><th scope="row">' + esc(critName(g.criterion)) + '</th>' +
+        '<td class="basis">' + esc(requiredText(g)) + '</td>' +
+        '<td class="basis">' + esc(actualText(g)) + '</td>' +
+        '<td class="amount">' + esc(g.pass ? t("gPass") : t("gFail")) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+
+    /* The failing reasons verbatim -- this is the useful part for a buyer:
+       what MOHW requires and by how much they miss it. */
+    if (failed.length){
+      html += '<details class="detail" open><summary>' + esc(t("failedGates")) + ' (' + failed.length + ')</summary><ul>';
+      failed.forEach(function(g){
+        html += '<li><strong>' + esc(critName(g.criterion)) + '</strong> — ' +
+          esc(t("gapRequired")) + ' ' + esc(requiredText(g)) + ' · ' +
+          esc(t("gapCurrent")) + ' ' + esc(actualText(g)) + engineProse(g.reason) + '</li>';
+      });
+      html += '</ul></details>';
+    }
+  } else {
+    html += '<div class="notice">' + esc(t("zeroGates")) + '</div>';
+  }
+
+  if (r.conditionalExpiresAt){
+    html += '<div class="notice"><strong>' + esc(t("conditionalUntil")) + '</strong>' +
+            esc(isoDate(r.conditionalExpiresAt)) + '</div>';
+  }
+  show("r-elig", html);
+}
+
+function runCopay(){
+  var btn = document.getElementById("run-copay");
+  btn.disabled = true;
+  show("r-copay", loadingHTML(t("busyCopay")));
+  post("/api/v1/patient/copay", {
+    patientId: "PT-DEMO-01",
+    admissionDurationDays: Number(document.getElementById("e-days").value),
+    grossMonthlyCaregivingCostKRW: Number(document.getElementById("e-cost").value)
+  }).then(function(d){
+    last.copay = d; touched.copay = true; renderCopay(d);
+  }).catch(function(err){
+    touched.copay = true;
+    show("r-copay", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderCopay(d){
+  var c = d.copayResult || {};
+  function pct(v){
+    return (typeof v === "number" && isFinite(v)) ? Math.round(v * 100) + " %" : "—";
+  }
+  var tierText = t(TIER_KEY[c.tier] || "tierStandard");
+
+  show("r-copay",
+    '<div class="verdict">' +
+      seal(c.penaltyApplied ? "hold" : "clean", pct(c.finalCopayRatio), tierText) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(t("copayFinal")) + ' ' + esc(pct(c.finalCopayRatio)) + '</strong></p>' +
+        '<p class="authority">' + esc(t("copayBase")) + ' ' + esc(pct(c.baseCopayRatio)) +
+          (c.penaltyApplied ? ' · ' + esc(t("copayPenalty")) + ' +' + esc(pct(c.penaltyRatio)) : '') + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("copayDays")) + '</th><td class="amount">' + esc(num(c.admissionDurationDays)) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("copayTier")) + '</th><td class="amount">' + esc(tierText) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("copayPatient")) + '</th><td class="amount">' + esc(won(c.patientCopayKRW)) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("copayNhi")) + '</th><td class="amount">' + esc(won(c.nhiCoveredKRW)) + '</td></tr>' +
+      '<tr class="total"><th scope="row">' + esc(t("lEcostTotal")) + '</th>' +
+        '<td class="amount">' + esc(won(c.grossMonthlyCaregivingCostKRW)) + '</td></tr>' +
+    '</tbody></table>' +
+    '<details class="detail"><summary>' + esc(t("policyChecked")) + '</summary><ul>' +
+      '<li>' + esc(t("policyChecked")) + ' ' + esc(isoDate(c.policyLastChecked)) + '</li>' +
+      '<li>' + esc(t("copayTier")) + ' — ' + esc(c.tier || "—") + '</li>' +
+    '</ul></details>'
+  );
+}
+
+/* ---------------- 01b staffing ratio ----------------
+   Ward-level. One sample shift record WITH a supervising RN is submitted, and
+   supplying it matters: an empty shift log cannot be assessed, and the engine now
+   reports that as shiftLogsNotProvided rather than passing it. */
+var SAMPLE_SHIFT = function(){
+  return [{
+    caregiverId: "WORKER-PARK-01",
+    shiftDate: new Date().toISOString().slice(0, 10),
+    startHour: 8, endHour: 16,
+    continuousShiftHours: 8,
+    isSoloShift: false,
+    supervisingRnId: "RN-DEMO-01"
+  }];
+};
+function wardPayload(){
+  return {
+    hospitalId: document.getElementById("e-id").value,
+    wardId: document.getElementById("w-id").value,
+    bedCount: Number(document.getElementById("w-beds").value),
+    assignedCaregiverCount: Number(document.getElementById("w-care").value),
+    shiftsPerDay: Number(document.getElementById("w-shifts").value),
+    shiftLogs: SAMPLE_SHIFT()
+  };
+}
+function runStaffing(){
+  var btn = document.getElementById("run-staffing");
+  btn.disabled = true;
+  show("r-staffing", loadingHTML(t("busyStaffing")));
+  post("/api/v1/staffing/evaluate", wardPayload()).then(function(d){
+    last.staffing = d; touched.staffing = true; renderStaffing(d);
+  }).catch(function(err){
+    touched.staffing = true;
+    show("r-staffing", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderStaffing(d){
+  var s = d.staffingResult || {};
+  var ok = !!s.meetsForthcomingStandard;
+  var findings = s.findings || [];
+
+  var html = '<div class="verdict">' +
+      seal(ok ? "clean" : "hold", ok ? t("stMeets") : t("stMisses"), s.wardId || "") +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(ok ? t("stMeets") : t("stMisses")) + '</strong></p>' +
+        '<p class="authority">' + esc(t("policyProgram")) + ' — ' + esc(t("progPending")) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><tbody>' +
+      '<tr><th scope="row">' + esc(t("reqHeadcount")) + '</th><td class="amount">' + esc(num(s.requiredHeadcountPerRoom)) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("curHeadcount")) + '</th><td class="amount">' + esc(num(s.currentAssignedCaregiverCount)) + '</td></tr>' +
+    '</tbody></table>';
+
+  if (findings.length){
+    html += '<details class="detail" open><summary>' + esc(t("findingsTitle")) + ' (' + findings.length + ')</summary><ul>';
+    findings.forEach(function(f){
+      // A non-gating finding must not read as a verdict, or the screen contradicts
+      // its own summary line above it.
+      var tag = (f.gating === false) ? ' <em>(' + esc(t("advisory")) + ')</em>' : '';
+      html += '<li><strong>' + esc(critName(f.criterion)) + '</strong>' + tag + ' — ' +
+        esc(t("gapRequired")) + ' ' + esc(requiredText(f)) + ' · ' +
+        esc(t("gapCurrent")) + ' ' + esc(actualText(f)) + engineProse(f.detail) + '</li>';
+    });
+    html += '</ul></details>';
+  }
+  show("r-staffing", html);
+}
+
+/* ---------------- 01c consolidated gap report ----------------
+   Facility and ward criteria in ONE designation decision, which is how Korean
+   nursing-facility certification actually works. This is the artifact a facility
+   director would act on: every gap, its current value, and what to do. */
+var FIX_KEY = { operational:"fixOperational", structural:"fixStructural" };
+function runGap(){
+  var btn = document.getElementById("run-gap");
+  btn.disabled = true;
+  show("r-gap", loadingHTML(t("busyGap")));
+  var id = document.getElementById("e-id").value;
+  post("/api/v1/hospital/gap-report", {
+    hospitalData: {
+      hospitalId: id,
+      hospitalName: id,
+      bedCount: Number(document.getElementById("e-beds").value),
+      totalCaregivers: Number(document.getElementById("e-total").value),
+      directEmploymentCaregivers: Number(document.getElementById("e-direct").value),
+      medicalAccreditationStatus: document.getElementById("e-accred").value,
+      region: document.getElementById("e-region").value
+    },
+    wardStaffingData: [wardPayload()]
+  }).then(function(d){
+    last.gap = d; touched.gap = true; renderGap(d);
+  }).catch(function(err){
+    touched.gap = true;
+    show("r-gap", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderGap(d){
+  var g = d.gapReport || {};
+  var gaps = g.gaps || [];
+  var key = STATUS_KEY[g.overallStatus] || "statusIneligible";
+  var ok = g.overallStatus === "eligible";
+
+  var html = '<div class="verdict">' +
+      seal(ok ? "clean" : "hold", t(key), String(gaps.length) + " " + t("gapCount")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(t("gapOverall")) + ' ' + esc(t(key)) + '</strong></p>' +
+        '<p class="authority">' + esc(t("gapExplain")) + '</p>' +
+      '</div>' +
+    '</div>';
+
+  if (gaps.length){
+    html += '<table class="ledger"><thead><tr>' +
+      '<th scope="col">' + esc(t("thGapCriterion")) + '</th>' +
+      '<th scope="col">' + esc(t("thGapCurrent")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thGapFix")) + '</th>' +
+      '</tr></thead><tbody>';
+    gaps.forEach(function(x){
+      html += '<tr><th scope="row">' + esc(critName(x.criterion)) + '</th>' +
+        '<td class="basis">' + esc(actualText(x)) + '</td>' +
+        '<td class="amount">' + esc(t(FIX_KEY[x.fixability] || "fixUnclassified")) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<details class="detail" open><summary>' + esc(t("thGapAction")) + ' (' + gaps.length + ')</summary><ul>';
+    gaps.forEach(function(x){
+      html += '<li><strong>' + esc(critName(x.criterion)) + '</strong> — ' +
+        esc(t("gapRequired")) + ' ' + esc(requiredText(x)) + ' · ' +
+        esc(t("gapCurrent")) + ' ' + esc(actualText(x)) + engineProse(x.recommendedAction) + '</li>';
+    });
+    html += '</ul></details>';
+  } else {
+    html += '<div class="notice">' + esc(t("noGaps")) + '</div>';
+  }
+  show("r-gap", html);
+}
+
+/* ---------------- 01d batch copay ----------------
+   Three admission lengths so the tier curve is visible in one run rather than
+   three clicks. The entries are examples, disclosed by the note above. */
+function runBatch(){
+  var btn = document.getElementById("run-batch");
+  btn.disabled = true;
+  show("r-batch", loadingHTML(t("busyBatch")));
+  var cost = Number(document.getElementById("e-cost").value);
+  post("/api/v1/patient/copay/batch", {
+    patients: [
+      { patientId: "PT-DEMO-01", admissionDurationDays: 30,  grossMonthlyCaregivingCostKRW: cost },
+      { patientId: "PT-DEMO-02", admissionDurationDays: 200, grossMonthlyCaregivingCostKRW: cost },
+      { patientId: "PT-DEMO-03", admissionDurationDays: 400, grossMonthlyCaregivingCostKRW: cost }
+    ]
+  }).then(function(d){
+    last.batch = d; touched.batch = true; renderBatch(d);
+  }).catch(function(err){
+    touched.batch = true;
+    show("r-batch", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderBatch(d){
+  var rows = d.copayResults || [];
+  function pct(v){ return (typeof v === "number" && isFinite(v)) ? Math.round(v * 100) + " %" : "—"; }
+
+  var html = '<p class="claim"><strong>' + esc(t("batchTitle")) + '</strong></p>';
+  if (rows.length){
+    html += '<table class="ledger"><thead><tr>' +
+      '<th scope="col">' + esc(t("thBatchDays")) + '</th>' +
+      '<th scope="col">' + esc(t("thBatchTier")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thBatchRatio")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thBatchPatient")) + '</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function(c){
+      html += '<tr><th scope="row">' + esc(num(c.admissionDurationDays)) + '</th>' +
+        '<td>' + esc(t(TIER_KEY[c.tier] || "tierStandard")) + '</td>' +
+        '<td class="amount">' + esc(pct(c.finalCopayRatio)) + '</td>' +
+        '<td class="amount">' + esc(won(c.patientCopayKRW)) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<p class="authority">' + esc(t("batchNote")) + '</p>';
+  } else {
+    html += '<div class="notice">' + esc(t("noGaps")) + '</div>';
+  }
+  show("r-batch", html);
+}
+
+/* ---------------- 04b workforce risk scan ----------------
+   Ledger-wide, no input. Reads the same caregiver ledger the matching engine
+   gates on, so if matching says "not found" this will show the same small set. */
+var RISK_KEY = { LOW:"riskLow", MEDIUM:"riskMedium", HIGH:"riskHigh" };
+function runRisk(){
+  var btn = document.getElementById("run-risk");
+  btn.disabled = true;
+  show("r-risk", loadingHTML(t("busyRisk")));
+  get("/api/v1/risk/scan").then(function(d){
+    last.risk = d; touched.risk = true; renderRisk(d);
+  }).catch(function(err){
+    touched.risk = true;
+    show("r-risk", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderRisk(d){
+  var r = d.riskReport || {};
+  var rows = r.results || [];
+
+  var html = '<div class="verdict">' +
+      seal(rows.length ? "hold" : "clean", String(r.totalEvaluated || 0), t("riskEvaluated")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(t("riskTitle")) + '</strong></p>' +
+        '<p class="authority">' + esc(t("riskEvaluated")) + ' ' + esc(num(r.totalEvaluated)) +
+          ' · ' + esc(t("riskSkipped")) + ' ' + esc(num(r.skipped)) + '</p>' +
+      '</div>' +
+    '</div>';
+
+  if (rows.length){
+    html += '<table class="ledger"><thead><tr>' +
+      '<th scope="col">' + esc(t("thRiskWorker")) + '</th>' +
+      '<th scope="col">' + esc(t("thRiskLevel")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thRiskVisa")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thRiskMonths")) + '</th>' +
+      '<th scope="col" class="amount">' + esc(t("thRiskSev")) + '</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function(x){
+      html += '<tr><th scope="row">' + esc(x.workerId) + '</th>' +
+        '<td>' + esc(t(RISK_KEY[x.riskLevel] || "riskMedium")) + '</td>' +
+        '<td class="amount">' + esc(num(x.daysToVisaExpiry)) + ' ' + esc(t("riskDaysUnit")) + '</td>' +
+        '<td class="amount">' + esc(num(x.monthsEmployed)) + ' ' + esc(t("riskMonthsUnit")) + '</td>' +
+        '<td class="amount">' + esc(won(x.cumulativeSeveranceLiability)) + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    var flagged = rows.filter(function(x){ return (x.flags || []).length; });
+    if (flagged.length){
+      html += '<details class="detail"><summary>' + esc(t("thRiskFlags")) + ' (' + flagged.length + ')</summary><ul>';
+      flagged.forEach(function(x){
+        html += '<li><strong>' + esc(x.workerId) + '</strong> — ' + esc((x.flags || []).join(", ")) + '</li>';
+      });
+      html += '</ul></details>';
+    }
+  } else {
+    html += '<div class="notice">' + esc(t("noRisk")) + '</div>';
+  }
+  show("r-risk", html);
+}
+
+/* ---------------- 07 payroll: net pay ---------------- */
+/* The one figure a caregiver actually cares about, and the one the product could not show
+   until now: the escrow engine was correct and tested but had no route and no screen.
+
+   Two things this panel deliberately does NOT do. It does not infer the tax regime -- the
+   caller picks 근로소득 or 사업소득, and the default is the compliant one. And it does not
+   let a client present the figure as more precise than it is: the engine's own `taxRegime`
+   carries `basis`, `legalBasis` and `excluded`, and this panel renders THAT rather than
+   deciding for itself. The income tax is now 별표 2's own number -- the amount an employer
+   withholds -- so the disclosure names what remains unmodelled (the worker's own
+   소득·세액공제신고서 and the 80/120% election) instead of disclaiming the whole figure. */
+function runPay(){
+  var btn = document.getElementById("run-pay");
+  btn.disabled = true;
+  show("r-pay", loadingHTML(t("busyPay")));
+  post("/api/v1/remittance/escrow", {
+    workerId: document.getElementById("p-worker").value,
+    grossMonthlyWage: optNum("p-wage"),
+    verifiedHoursWorked: optNum("p-hours"),
+    dependents: optNum("p-depend") || 0,
+    dependentChildren: optNum("p-child") || 0,
+    incomeType: document.getElementById("p-type").value
+  }).then(function(d){
+    last.pay = d; touched.pay = true; renderPay(d);
+  }).catch(function(err){
+    touched.pay = true;
+    stateOf("st-pay", "flag", t("stFail"));
+    show("r-pay", failure(t("failTitle"), (err && err.message) ? err.message : t("failNet")));
+  }).then(function(){ btn.disabled = false; });
+}
+function renderPay(d){
+  var p = (d && d.payroll) ? d.payroll : {};
+  var tw = p.taxWithholding || {};
+  var ins = p.fourMajorInsurances || {};
+  var fx = p.remittanceEscrow || {};
+  var reg = p.taxRegime || {};
+  var isBiz = (p.incomeType === "business_income");
+
+  stateOf("st-pay", "done", t("stDone"));
+
+  function row(label, value){
+    return '<tr><th scope="row">' + esc(label) + '</th><td class="amount">' + esc(value) + '</td></tr>';
+  }
+  /* 장기요양 has no published rate for some dates. It is shown as explicitly unavailable
+     rather than omitted -- an omitted deduction understates what a worker owes, which is
+     how this codebase has been wrong before. */
+  var ltc = (typeof ins.longTermCare === "number")
+    ? won(ins.longTermCare)
+    : t("rowLtcUnavailable");
+
+  var html =
+    '<div class="verdict">' +
+      seal("clean", won(p.netPayableKRW), t("payNet")) +
+      '<div>' +
+        '<p class="claim"><strong>' + esc(won(p.grossMonthlyWage)) + ' − ' +
+          esc(won(p.totalDeductions)) + ' = ' + esc(won(p.netPayableKRW)) + '</strong></p>' +
+        '<p class="authority">' +
+          esc(isBiz ? t("payRegimeBusiness") : t("payRegimeEmployee")) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<table class="ledger"><tbody>' +
+      row(t("payGross"), won(p.grossMonthlyWage)) +
+      row(t("payTax"), won(tw.incomeTax)) +
+      row(t("payLocalTax"), won(tw.localIncomeTax)) +
+      row(t("payPension"), won(ins.nationalPension)) +
+      row(t("payHealth"), won(ins.healthInsurance)) +
+      row(t("payEmploy"), won(ins.employmentInsurance)) +
+      row(t("payLTC"), ltc) +
+      '<tr><th scope="row">' + esc(t("payTotal")) + '</th><td class="amount">' +
+        esc(won(p.totalDeductions)) + '</td></tr>' +
+      '<tr><th scope="row">' + esc(t("payNet")) + '</th><td class="amount"><strong>' +
+        esc(won(p.netPayableKRW)) + '</strong></td></tr>' +
+      row(t("payFx"), "$" + num(fx.netPayableUSD)) +
+    '</tbody></table>' +
+    '<p class="fineprint ' + (fx.foreignExchangeActCompliant ? '' : 'warn') + '">' +
+      esc(fx.foreignExchangeActCompliant ? t("payFxOk") : t("payFxNo")) + '</p>';
+
+  if (isBiz) {
+    html += '<p class="fineprint warn">' + esc(t("payBizNote")) + '</p>';
+  }
+
+  /* The estimate disclosure, driven by the engine's own flag rather than by the UI guessing. */
+  var detail = [];
+  if (reg.basis) detail.push(esc(String(reg.basis)));
+  (reg.assumptions || []).forEach(function(s){ detail.push(t("payAssumption") + " — " + esc(String(s))); });
+  (reg.excluded || []).forEach(function(s){ detail.push(t("payExcluded") + " — " + esc(String(s))); });
+  if (detail.length) {
+    html += '<p class="fineprint">' + esc(t("payEstimateNote")) + '</p>' +
+      '<details class="detail"><summary>' + esc(t("engineSource")) + '</summary><ul><li>' +
+      detail.join('</li><li>') + '</li></ul></details>';
+  }
+  show("r-pay", html);
+}
+
+/* ---------------- wiring ---------------- */
+Array.prototype.forEach.call(document.querySelectorAll("[data-toggle]"), function(btn){
+  btn.addEventListener("click", function(){
+    var sec = document.getElementById(btn.getAttribute("data-toggle"));
+    var closed = sec.classList.toggle("closed");
+    btn.setAttribute("aria-expanded", String(!closed));
+  });
+});
+document.getElementById("btn-lang").addEventListener("click", function(){
+  lang = (lang === "ko") ? "en" : "ko";
+  applyLang();
+});
+document.getElementById("run-elig").addEventListener("click", runEligibility);
+document.getElementById("run-copay").addEventListener("click", runCopay);
+document.getElementById("run-audit").addEventListener("click", runAudit);
+document.getElementById("run-cred").addEventListener("click", runCred);
+document.getElementById("run-match").addEventListener("click", runMatch);
+document.getElementById("run-visa").addEventListener("click", runVisa);
+document.getElementById("run-watch").addEventListener("click", runWatch);
+document.getElementById("run-pay").addEventListener("click", runPay);
+document.getElementById("run-gap").addEventListener("click", runGap);
+document.getElementById("run-batch").addEventListener("click", runBatch);
+document.getElementById("run-staffing").addEventListener("click", runStaffing);
+document.getElementById("run-risk").addEventListener("click", runRisk);
+
+/* ---------------- boot: read real service state, then stop ---------------- */
+applyLang();
+if (FROM_DISK){
+  /* Don't even try the request: it cannot succeed, and a failed fetch would surface as
+     "Failed to fetch" -- a message that explains nothing and looks like a crash.
+     Say what happened and what to do, at the top of the page and in the first card. */
+  var notice = document.createElement("div");
+  notice.className = "notice fail";
+  notice.setAttribute("role", "alert");
+  notice.innerHTML = "<strong>" + esc(t("diskTitle")) + "</strong> " + esc(t("diskWarn")) +
+    ' <a href="http://localhost:3000">http://localhost:3000</a>';
+  var host = document.querySelector("main") || document.body;
+  if (host && host.firstChild) host.insertBefore(notice, host.firstChild);
+  else if (host) host.appendChild(notice);
+  last.health = null;
+  healthLine();
+  ["st-elig","st-audit","st-cred","st-match","st-visa","st-watch"].forEach(function(id){
+    touched[id.replace("st-","")] = true;
+    stateOf(id, "flag", t("stFail"));
+  });
+  show("r-audit", failure(t("diskTitle"), t("diskWarn")));
+} else {
+  get("/health").then(function(h){
+    last.health = h;
+    healthLine();
+    renderWatchIfOpen();
+  }).catch(function(){
+    last.health = null;
+    healthLine();
+    ["st-elig","st-audit","st-cred","st-match","st-visa","st-watch"].forEach(function(id){
+      touched[id.replace("st-","")] = true;
+      stateOf(id, "flag", t("stFail"));
+    });
+    show("r-audit", failure(t("failTitle"), t("failNet")));
+  });
+}
+function renderWatchIfOpen(){ /* policy values are read at run time */ }
+</script>
+</body>
+</html>
